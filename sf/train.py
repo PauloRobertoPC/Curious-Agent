@@ -1,4 +1,7 @@
+import sys
+
 from utils import register_custom_env_envs, parse_args
+
 from sample_factory.train import run_rl
 
 def custom_env_override_defaults(_env, parser):
