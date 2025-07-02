@@ -3,15 +3,14 @@ import sys
 import argparse
 import importlib
 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from sample_factory.algo.utils.misc import ExperimentStatus
 from sample_factory.launcher.run_ngc import add_ngc_args, run_ngc
 from sample_factory.launcher.run_processes import add_os_parallelism_args, run
 from sample_factory.launcher.run_slurm import add_slurm_args, run_slurm
 from sample_factory.utils.typing import Config
 from sample_factory.utils.utils import log
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 
 def launcher_argparser(args) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()

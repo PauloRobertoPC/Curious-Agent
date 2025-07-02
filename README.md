@@ -26,17 +26,3 @@ uv run sf/run.py --run=sf.experiments.exps --experiments_per_gpu=1 --num_gpus=1
 ```bash 
 uv run sf/play.py --env=health_gathering_glaucoma
 ```
-
-⚠️ **Warning:**  In order to run the *play* action you need to change the line 218 of the python file learner
-inside the sample-factory lib as below.
-
-```py
-checkpoint_dict = torch.load(latest_checkpoint, map_location=device)
-```
-
-to
-
-```py
-checkpoint_dict = torch.load(latest_checkpoint, map_location=device, weights_only=False)
-```
-

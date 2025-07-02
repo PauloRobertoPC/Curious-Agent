@@ -5,12 +5,14 @@ register_custom_env_envs()
 
 _params = ParamGrid(
     [
-        ("seed", [1111, 2222]),
+        # ("seed", [1111, 2222]),
+        ("seed", [1111]),
         ("train_for_env_steps", [20_000_000]),
         ("algo", ["APPO"]),
         ("use_rnn", [True]),
         ("batch_size", [2048]),
-        ("glaucoma_level", [50, 100, 150, 200, 250, 300]),
+        # ("glaucoma_level", [50, 100, 150, 200, 250, 300]),
+        ("glaucoma_level", [50]),
         ("env", ["health_gathering_glaucoma"]),
     ]
 )

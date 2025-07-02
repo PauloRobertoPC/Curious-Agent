@@ -3,13 +3,14 @@ import sys
 import argparse
 from typing import Optional
 
+# making the packages below visible
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from sample_factory.enjoy import enjoy
 from sample_factory.train import run_rl
 from sample_factory.envs.env_utils import register_env
 from sample_factory.cfg.arguments import parse_full_cfg, parse_sf_args
 
-# making the packages below visible
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from env.vizdoomenv import VizDoomGym
 from wrappers.render_wrapper import RenderWrapper
