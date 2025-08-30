@@ -12,7 +12,6 @@ def custom_env_override_defaults(_env, parser):
     # These can still be changed from the command line. See configuration guide for more details.
     parser.set_defaults(
         # normalize_input=True,
-        obs_scale=255.0,
         gamma=0.99,
         learning_rate=1e-4,
         lr_schedule="constant",
@@ -29,6 +28,7 @@ def custom_env_override_defaults(_env, parser):
         # experiment="glaucoma250_intrinsic",
         experiment="glaucoma200",
         glaucoma_level=200,
+        reward_type="rnd",
         # save_video = True,
         # video_frames=6000,
     )

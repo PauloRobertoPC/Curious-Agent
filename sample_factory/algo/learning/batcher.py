@@ -13,7 +13,7 @@ from sample_factory.utils.attr_dict import AttrDict
 from sample_factory.utils.timing import Timing
 from sample_factory.utils.typing import Device, PolicyID
 from sample_factory.utils.utils import debug_log_every_n, log
-
+from sample_factory.batch_processors import reward_maker
 
 def slice_len(s: slice) -> int:
     return s.stop - s.start
@@ -121,6 +121,10 @@ class Batcher(HeartbeatStoppableEventLoopObject):
             [] for _ in range(self.max_batches_to_accumulate)
         ]
 
+        rm = self.cfg.reward_type
+        if not(rm == "extrinsic" or rm == "zero"):
+            rm = "exploration"
+        self.bp = reward_maker[rm](self.cfg)
     @signal
     def initialized(self): ...
 
@@ -208,6 +212,8 @@ class Batcher(HeartbeatStoppableEventLoopObject):
 
                 assert trajectories_copied == self.traj_per_training_iteration and remaining == 0
 
+                # transforming batch the way we want to
+                self.training_batches[batch_idx] = self.bp.process(self.training_batches[batch_idx])
                 # signal the learner that we have a new training batch
                 self.training_batches_available.emit(batch_idx)
 

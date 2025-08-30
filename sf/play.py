@@ -10,7 +10,9 @@ from sample_factory.enjoy import enjoy
 
 def custom_env_override_defaults(_env, parser):
     parser.set_defaults(
-        experiment="doom_health_gathering/glaucoma_/00_glaucoma_see_1111_t.f.e.ste_20000000_alg_APPO_u.rnn_True_b.siz_2048_g.lev_50_env_health_gathering_glaucoma"
+        experiment="doom_health_gathering/glaucoma_/01_glaucoma_see_1111_u.rnn_True_b.siz_2048_g.lev_50_r.typ_extrinsic_env_health_gathering_glaucoma"
+        
+        # experiment="glaucoma200"
     )
 
 if __name__ == "__main__":

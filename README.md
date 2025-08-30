@@ -26,3 +26,8 @@ uv run sf/run.py --run=sf.experiments.exps --experiments_per_gpu=1 --num_gpus=1
 ```bash 
 uv run sf/play.py --env=health_gathering_glaucoma
 ```
+
+### To see metrics in tensorboard run
+```bash 
+uv run -m tensorboard.main --logdir=./train_dir
+```

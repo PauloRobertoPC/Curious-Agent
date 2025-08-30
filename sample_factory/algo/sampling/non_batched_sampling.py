@@ -205,6 +205,7 @@ class ActorState:
         report = None
         if done:
             report = self._episodic_stats(info)
+            # print(info)
 
             self._update_training_info()
 
@@ -307,6 +308,8 @@ class ActorState:
             stats["RecordEpisodeStatistics_len"] = wrapper_len
 
         report = {EPISODIC: stats, POLICY_ID_KEY: self.curr_policy_id}
+        # print("****************************************************************************************************")
+        # print(report)
         return report
 
 

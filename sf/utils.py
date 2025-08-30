@@ -59,7 +59,13 @@ def add_custom_env_args(_env, p: argparse.ArgumentParser, evaluation=False):
         default=0,
         help="Glaucoma severity level (must be a positive integer)",
     )
-    pass
+    p.add_argument(
+        "--reward_type",
+        type=str,
+        default="extrinsic",
+        choices=["extrinsic", "rnd", "icm", "ngu"],
+        help="Type of reward to use during training.",
+    )
 
 def parse_args(custom_env_override_defaults, argv=None, evaluation=False):
     # parse the command line arguments to build

@@ -10,7 +10,7 @@ class ImageTransformationWrapper(gym.ObservationWrapper):
         old_shape = self.observation_space.shape
         shape_with_channels = (1, resized_shape[0], resized_shape[1])
         self.observation_space = gym.spaces.Box(
-            low=0, high=255, shape=shape_with_channels, dtype=np.uint8)
+            low=0.0, high=1.0, shape=shape_with_channels, dtype=np.float32)
 
     def observation(self, observation):
         return self.grayscale(observation)
@@ -19,4 +19,4 @@ class ImageTransformationWrapper(gym.ObservationWrapper):
         gray = cv2.cvtColor(np.moveaxis(observation, 0, -1), cv2.COLOR_BGR2GRAY)
         resize = cv2.resize(gray, (self.resized_shape[1], self.resized_shape[0]), interpolation=cv2.INTER_CUBIC)
         state = np.reshape(resize, (1, self.resized_shape[0], self.resized_shape[1]))
-        return state
+        return state/255.0
