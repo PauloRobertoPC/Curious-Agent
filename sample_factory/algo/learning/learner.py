@@ -12,6 +12,8 @@ import torch
 from torch import Tensor
 from torch.nn import Module
 
+from sample_factory.custom.reward_processer import *
+from sample_factory.custom import create_instance
 from sample_factory.algo.learning.rnn_utils import build_core_out_from_seq, build_rnn_inputs
 from sample_factory.algo.utils.action_distributions import get_action_distribution, is_continuous_action_space
 from sample_factory.algo.utils.env_info import EnvInfo
@@ -223,6 +225,7 @@ class Learner(Configurable):
         self.actor_critic._apply(share_mem)
         self.actor_critic.train()
 
+
         params = list(self.actor_critic.parameters())
 
         optimizer_cls = dict(adam=torch.optim.Adam, lamb=Lamb)
@@ -241,6 +244,12 @@ class Learner(Configurable):
             optimizer_kwargs["eps"] = self.cfg.adam_eps
 
         self.optimizer = optimizer_cls(params, **optimizer_kwargs)
+
+        # Setting Reward Calculator
+        self.reward_calculator = create_instance(self.cfg.reward_type, self.cfg, self.env_info)
+        # self.reward_calculator.model_to_device(self.device)
+        self.reward_calculator._apply(share_mem)
+        # self.reward_calculator.train()
 
         self.load_from_checkpoint(self.policy_id)
         self.param_server.init(self.actor_critic, self.train_step, self.device)

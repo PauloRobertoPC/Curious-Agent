@@ -4,6 +4,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 import torch
 from signal_slot.signal_slot import EventLoop, signal
 
+from sample_factory.custom.reward_processer import RewardProcesser
 from sample_factory.algo.utils.env_info import EnvInfo
 from sample_factory.algo.utils.heartbeat import HeartbeatStoppableEventLoopObject
 from sample_factory.algo.utils.shared_buffers import BufferMgr, alloc_trajectory_tensors, policy_device
@@ -13,7 +14,6 @@ from sample_factory.utils.attr_dict import AttrDict
 from sample_factory.utils.timing import Timing
 from sample_factory.utils.typing import Device, PolicyID
 from sample_factory.utils.utils import debug_log_every_n, log
-from sample_factory.batch_processors import reward_maker
 
 def slice_len(s: slice) -> int:
     return s.stop - s.start
@@ -88,7 +88,7 @@ class SliceMerger:
 
 class Batcher(HeartbeatStoppableEventLoopObject):
     def __init__(
-        self, evt_loop: EventLoop, policy_id: PolicyID, buffer_mgr: BufferMgr, cfg: AttrDict, env_info: EnvInfo
+        self, evt_loop: EventLoop, policy_id: PolicyID, buffer_mgr: BufferMgr, cfg: AttrDict, env_info: EnvInfo,
     ):
         unique_name = f"{Batcher.__name__}_{policy_id}"
         super().__init__(evt_loop, unique_name, cfg.heartbeat_interval)
@@ -121,10 +121,6 @@ class Batcher(HeartbeatStoppableEventLoopObject):
             [] for _ in range(self.max_batches_to_accumulate)
         ]
 
-        rm = self.cfg.reward_type
-        if not(rm == "extrinsic" or rm == "zero"):
-            rm = "exploration"
-        self.bp = reward_maker[rm](self.cfg)
     @signal
     def initialized(self): ...
 
@@ -212,8 +208,8 @@ class Batcher(HeartbeatStoppableEventLoopObject):
 
                 assert trajectories_copied == self.traj_per_training_iteration and remaining == 0
 
-                # transforming batch the way we want to
-                self.training_batches[batch_idx] = self.bp.process(self.training_batches[batch_idx])
+                # training the reward calculator in a new batch
+                # print(f"TRAININGGGGGGGGGG {global_reward_processer().train_times}")
                 # signal the learner that we have a new training batch
                 self.training_batches_available.emit(batch_idx)
 

@@ -11,7 +11,6 @@ def custom_env_override_defaults(_env, parser):
     # Modify the default arguments when using this env.
     # These can still be changed from the command line. See configuration guide for more details.
     parser.set_defaults(
-        # normalize_input=True,
         gamma=0.99,
         learning_rate=1e-4,
         lr_schedule="constant",
@@ -19,18 +18,16 @@ def custom_env_override_defaults(_env, parser):
         train_for_env_steps=100_000_000,
         algo="APPO",
         env_frameskip=4,
-        use_rnn=True,
+        use_rnn=False,
+        batched_sampling=True,
         batch_size=2048, 
-        num_workers=4, 
-        num_envs_per_worker=4, 
+        num_workers=8, 
+        num_envs_per_worker=16, 
         device="gpu",
         num_policies=1,
-        # experiment="glaucoma250_intrinsic",
-        experiment="glaucoma200",
-        glaucoma_level=200,
-        reward_type="rnd",
-        # save_video = True,
-        # video_frames=6000,
+        experiment="glaucoma150_more_steps",
+        glaucoma_level=150,
+        reward_type="extrinsic",
     )
 
 if __name__ == "__main__":

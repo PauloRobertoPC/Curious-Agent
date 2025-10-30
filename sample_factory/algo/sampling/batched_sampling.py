@@ -9,6 +9,7 @@ import numpy as np
 import torch
 from torch import Tensor
 
+from sample_factory.custom.reward_processer import RewardProcesser
 from sample_factory.algo.sampling.sampling_utils import VectorEnvRunner, record_episode_statistics_wrapper_stats
 from sample_factory.algo.utils.env_info import EnvInfo, check_env_info
 from sample_factory.algo.utils.make_env import BatchedVecEnv, SequentialVectorizeWrapper, make_env_func_batched
@@ -315,6 +316,9 @@ class BatchedVectorEnvRunner(VectorEnvRunner):
         with timing.add_time("env_step"):
             self.last_obs, rewards, terminated, truncated, infos = self.vec_env.step(actions)
             dones = terminated | truncated  # both should be either tensors or numpy arrays of bools
+            # changing rewards
+            # rewards = calculate rewards
+            # rewards = rewards - rewards
 
         with timing.add_time("post_env_step"):
             self.policy_id_buffer[:] = self.policy_id

@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, Tuple
 
 import torch
 
+from sample_factory.custom.reward_processer import RewardProcesser
 from sample_factory.algo.utils.env_info import EnvInfo
 from sample_factory.cfg.configurable import Configurable
 from sample_factory.utils.attr_dict import AttrDict
@@ -31,7 +32,7 @@ class VectorEnvRunner(Configurable):
     def init(self, timing: Timing):
         raise NotImplementedError()
 
-    def advance_rollouts(self, policy_id: PolicyID, timing) -> Tuple[List[Dict], List[Dict]]:
+    def advance_rollouts(self, policy_id: PolicyID, timing, reward_calculator: RewardProcesser) -> Tuple[List[Dict], List[Dict]]:
         raise NotImplementedError()
 
     def update_trajectory_buffers(self, timing) -> bool:

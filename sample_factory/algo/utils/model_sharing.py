@@ -13,6 +13,8 @@ from sample_factory.model.actor_critic import create_actor_critic
 from sample_factory.utils.timing import Timing
 from sample_factory.utils.utils import log
 
+from sample_factory.custom.reward_processer import *
+
 
 class ParameterServer:
     def __init__(self, policy_id, policy_versions: Tensor, serial_mode: bool):
@@ -20,6 +22,7 @@ class ParameterServer:
         self.actor_critic = None
         self.policy_versions = policy_versions
         self.device: Optional[torch.device] = None
+        self.reward_calculator: Optional[RewardProcesser] = None
 
         mp_ctx = get_mp_ctx(serial_mode)
         self._policy_lock = get_lock(serial_mode, mp_ctx)
@@ -129,6 +132,7 @@ class ParameterClientAsync(ParameterClient):
         server_policy_version = self._get_server_policy_version()
         if self.latest_policy_version < server_policy_version and self._shared_model_weights is not None:
             with self.timing.time_avg("weight_update"), self._policy_lock:
+                # print(self._shared_model_weights.keys())
                 self._actor_critic.load_state_dict(self._shared_model_weights)
 
             self.latest_policy_version = server_policy_version

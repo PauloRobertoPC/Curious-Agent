@@ -9,7 +9,6 @@ class SampleFactoryContext:
         self.env_registry = dict()
         self.model_factory = ModelFactory()
 
-
 GLOBAL_CONTEXT = None
 
 

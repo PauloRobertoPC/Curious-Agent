@@ -138,7 +138,8 @@ class ConvEncoder(Encoder):
         activation = nonlinearity(self.cfg)
         extra_mlp_layers: List[int] = cfg.encoder_conv_mlp_layers
         enc = ConvEncoderImpl(obs_space.shape, conv_filters, extra_mlp_layers, activation)
-        self.enc = torch.jit.script(enc)
+        self.enc = enc
+        # self.enc = torch.jit.script(enc)
 
         self.encoder_out_size = calc_num_elements(self.enc, obs_space.shape)
         log.debug(f"Conv encoder output size: {self.encoder_out_size}")

@@ -6,6 +6,7 @@ import gymnasium as gym
 import numpy as np
 import torch
 from torch import Tensor
+import cv2
 
 from sample_factory.algo.learning.learner import Learner
 from sample_factory.algo.sampling.batched_sampling import preprocess_actions
@@ -23,13 +24,62 @@ from sample_factory.utils.attr_dict import AttrDict
 from sample_factory.utils.typing import Config, StatusCode
 from sample_factory.utils.utils import debug_log_every_n, experiment_dir, log
 
+from pytorch_grad_cam import GradCAM, HiResCAM, ScoreCAM, GradCAMPlusPlus, AblationCAM, XGradCAM, EigenCAM, FullGrad
+from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
+from pytorch_grad_cam.utils.image import show_cam_on_image
+from torchvision.models import resnet50
 
-def visualize_policy_inputs(normalized_obs: Dict[str, Tensor]) -> None:
+class ModelCamWrapper(torch.nn.Module):
+    def __init__(self, model: torch.nn.Module, device, rnn_state_shape):
+        super(ModelCamWrapper, self).__init__()
+        self.action_mask = None
+        self.rnn_states = torch.zeros(rnn_state_shape, dtype=torch.float32, device=device)
+        self.model = model
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = {"obs": x}
+        outputs = self.model(x, self.rnn_states, action_mask=self.action_mask)
+        self.rnn_states = outputs['new_rnn_states']
+        return outputs['action_logits']
+
+def instantiate_cam(model):
+    target_layers = [
+        # model.model.encoder.encoders.obs.enc.conv_head[-6],
+        # model.model.encoder.encoders.obs.enc.conv_head[-5],
+        # model.model.encoder.encoders.obs.enc.conv_head[-4],
+        # model.model.encoder.encoders.obs.enc.conv_head[-3],
+        model.model.encoder.encoders.obs.enc.conv_head[-2],
+        # model.model.encoder.encoders.obs.enc.conv_head[-1]
+    ]
+    print(target_layers)
+
+    # You can choose different CAM methods here
+    cam = GradCAM(model=model, target_layers=target_layers)
+    # cam = HiResCAM(model=model, target_layers=target_layers)
+    # cam = ScoreCAM(model=model, target_layers=target_layers)
+    # cam = GradCAMPlusPlus(model=model, target_layers=target_layers)
+    # cam = AblationCAM(model=model, target_layers=target_layers)
+    # cam = XGradCAM(model=model, target_layers=target_layers)
+    # cam = EigenCAM(model=model, target_layers=target_layers)
+    # cam = FullGrad(model=model, target_layers=target_layers)
+    return cam
+
+@torch.enable_grad()
+def generate_cam(cam, img, targets):
+    img_batch = img.unsqueeze(0)
+    grayscale_cam = cam(input_tensor=img_batch, targets=targets, aug_smooth=False, eigen_smooth=False)
+    grayscale_cam = grayscale_cam[0, :] # since we have a single image in the batch
+
+    img = img.permute(1, 2, 0).cpu().numpy() # convert to HWC and numpy
+    img = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8UC1)
+    rgb_image = np.stack([img, img, img], axis=2).astype(np.float32) / 255.0
+    visualization = show_cam_on_image(rgb_image, grayscale_cam, use_rgb=True)
+    return visualization
+
+def visualize_policy_inputs(normalized_obs: Dict[str, Tensor], cam, targets) -> None:
     """
     Display actual policy inputs after all wrappers and normalizations using OpenCV imshow.
     """
-    import cv2
-
     if "obs" not in normalized_obs.keys():
         return
 
@@ -40,6 +90,9 @@ def visualize_policy_inputs(normalized_obs: Dict[str, Tensor]) -> None:
         # this function is only for RGB images
         return
 
+    #calculating image_cam
+    img_cam = generate_cam(cam, obs, targets)
+
     # convert to HWC
     obs = obs.permute(1, 2, 0)
     # convert to numpy
@@ -48,14 +101,25 @@ def visualize_policy_inputs(normalized_obs: Dict[str, Tensor]) -> None:
     obs = cv2.normalize(
         obs, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8UC1
     )  # this will be different frame-by-frame but probably good enough to give us an idea?
+
     scale = 5
     obs = cv2.resize(obs, (obs.shape[1] * scale, obs.shape[0] * scale), interpolation=cv2.INTER_NEAREST)
+    obs = np.stack([obs, obs, obs], axis=2)
 
-    cv2.imshow("policy inputs", obs)
+    img_cam = cv2.resize(img_cam, (img_cam.shape[1] * scale, img_cam.shape[0] * scale), interpolation=cv2.INTER_NEAREST)
+
+    side_by_side_rgb = np.concatenate((obs, img_cam), axis=1)
+    side_by_side_bgr = side_by_side_rgb[:, :, ::-1]  # convert RGB to BGR for OpenCV
+
+    # cv2.imshow("policy inputs", obs)
+    # cv2.imshow("policy inputs cam", img_cam)
+    cv2.imshow("policy inputs", side_by_side_bgr)
+
     cv2.waitKey(delay=1)
 
+    return side_by_side_rgb
 
-def render_frame(cfg, env, video_frames, num_episodes, last_render_start) -> float:
+def render_frame(cfg, env, video_frames, num_episodes, last_render_start, frame_processed) -> float:
     render_start = time.time()
 
     if cfg.save_video:
@@ -63,7 +127,8 @@ def render_frame(cfg, env, video_frames, num_episodes, last_render_start) -> flo
         if need_video_frame:
             frame = env.render()
             if frame is not None:
-                video_frames.append(frame.copy())
+                # video_frames.append(frame.copy())
+                video_frames.append(frame_processed)
     else:
         if not cfg.no_render:
             target_delay = 1.0 / cfg.fps if cfg.fps > 0 else 0
@@ -156,13 +221,24 @@ def enjoy(cfg: Config) -> Tuple[StatusCode, float]:
     video_frames = []
     num_episodes = 0
 
+    # GradCam object
+    actor_critic_cam = create_actor_critic(cfg, env.observation_space, env.action_space)
+    actor_critic_cam.model_to_device(device)
+    load_state_dict(cfg, actor_critic_cam, device)
+
+    cam_model = ModelCamWrapper(actor_critic_cam, device, [env.num_agents, get_rnn_size(cfg)])
+    print(cam_model)
+
+
+    cam = instantiate_cam(cam_model)
+
+    targets = [ClassifierOutputTarget(0)]
     with torch.no_grad():
         while not max_frames_reached(num_frames):
             normalized_obs = prepare_and_normalize_obs(actor_critic, obs)
 
-            if not cfg.no_render:
-                visualize_policy_inputs(normalized_obs)
             policy_outputs = actor_critic(normalized_obs, rnn_states, action_mask=action_mask)
+            # dict_keys(['values', 'action_logits', 'log_prob_actions', 'actions', 'new_rnn_states'])
 
             # sample actions from the distribution by default
             actions = policy_outputs["actions"]
@@ -176,10 +252,15 @@ def enjoy(cfg: Config) -> Tuple[StatusCode, float]:
                 actions = unsqueeze_tensor(actions, dim=-1)
             actions = preprocess_actions(env_info, actions)
 
+            targets[0] = ClassifierOutputTarget(actions[0])
+
             rnn_states = policy_outputs["new_rnn_states"]
 
+            if not cfg.no_render:
+                frame_processed = visualize_policy_inputs(normalized_obs, cam, targets)
+
             for _ in range(render_action_repeat):
-                last_render_start = render_frame(cfg, env, video_frames, num_episodes, last_render_start)
+                last_render_start = render_frame(cfg, env, video_frames, num_episodes, last_render_start, frame_processed)
 
                 obs, rew, terminated, truncated, infos = env.step(actions)
                 action_mask = obs.pop("action_mask").to(device) if "action_mask" in obs else None
@@ -229,7 +310,7 @@ def enjoy(cfg: Config) -> Tuple[StatusCode, float]:
 
                 # if episode terminated synchronously for all agents, pause a bit before starting a new one
                 if all(dones):
-                    render_frame(cfg, env, video_frames, num_episodes, last_render_start)
+                    render_frame(cfg, env, video_frames, num_episodes, last_render_start, frame_processed)
                     time.sleep(0.05)
 
                 if all(finished_episode):

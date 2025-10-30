@@ -5,19 +5,15 @@ register_custom_env_envs()
 
 _params = ParamGrid(
     [
-        ("seed", [1111]),
-        ("use_rnn", [True]),
-        ("batch_size", [2048]),
-        ("glaucoma_level", [50, 100, 150, 200, 250, 300]),
-        ("reward_type", ["rnd", "extrinsic"]),
-        ("env", ["health_gathering_glaucoma"]),
+        ("seed", [2222]),
+        ("batched_sampling", [True, False]),
     ]
 )
 
 _experiments = [
     Experiment(
         "glaucoma",
-        "uv run sf/train.py --algo=APPO --train_for_env_steps=30000000 --num_workers=5 --num_envs_per_worker=4 --num_policies=1 --device=gpu",
+        "uv run sf/train.py --reward_type=extrinsic --glaucoma_level=150 --algo=APPO --train_for_env_steps=10000000 --num_workers=8 --num_envs_per_worker=4 --device=gpu --env=health_gathering_glaucoma",
         _params.generate_params(randomize=False),
     ),
 ]
