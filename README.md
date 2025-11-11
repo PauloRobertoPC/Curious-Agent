@@ -2,8 +2,25 @@
 
 ## Stable Baselines 3
 
-```bash
-uv run sb3/main.py
+### Training an agent
+
+```bash 
+uv run sb3/main.py --action=train --experiment=<experiment_name> --reward=<reward type> --glaucoma_level=<glaucoma_intensity>
+```
+
+###  Agent playing
+```bash 
+uv run sb3/main.py --action=play --experiment=<experiment_name> --model=<policy_number>
+
+```
+###  Evaluating Agent
+```bash 
+uv run sb3/main.py --action=evaluate --experiment=<experiment_name> --model=<policy_number> --eval_episodes=<number_of_episodes>
+```
+
+###  Getting Help
+```bash 
+uv run sb3/main.py --help
 ```
 
 ## Sample Factory
