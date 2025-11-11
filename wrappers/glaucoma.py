@@ -18,6 +18,7 @@ class GlaucomaWrapper(gym.Wrapper):
         # steps heuristic
         self.steps_with_hungry_to_glaucoma = steps_with_hungry_to_glaucoma
         self.steps_with_hungry = 0
+        self.max_steps_with_hungry  = 0
         self.steps_glaucoma_level = steps_glaucoma_level
 
         # blidness reward
@@ -26,7 +27,9 @@ class GlaucomaWrapper(gym.Wrapper):
 
         # pixel stuffs
         self.pixels = self.generate_spiral(env.observation_space.shape[1], env.observation_space.shape[2])
+        self.pixels_rows, self.pixels_cols = zip(*self.pixels)
         self.erased_pixel = 0
+        self.max_erased_pixel = 0
 
         self.last_medkits = 0
 
@@ -35,12 +38,18 @@ class GlaucomaWrapper(gym.Wrapper):
         self.steps_with_hungry = 0
         self.erased_pixel = 0
         self.last_medkits = 0
+        self.max_erased_pixel = 0
+        self.max_steps_with_hungry  = 0
         return self.env.reset()
 
     def step(self, action):
         observation, reward, terminated, truncated, info = self.env.step(action)
         
         self.glaucoma_policy(info)
+
+        if terminated or truncated:
+            info["max_glaucoma_len"] = self.max_erased_pixel
+            info["max_steps_with_hungry"] = self.max_steps_with_hungry
             
         return self.erase_pixels(observation), reward, terminated, truncated, info
     
@@ -60,6 +69,12 @@ class GlaucomaWrapper(gym.Wrapper):
             if self.erased_pixel > len(self.pixels):
                 self.blind = True
 
+        if self.erased_pixel > self.max_erased_pixel:
+            self.max_erased_pixel = self.erased_pixel
+
+        if self.steps_with_hungry > self.max_steps_with_hungry:
+            self.max_steps_with_hungry = self.steps_with_hungry
+
     def reward_policy(self, reward):
         if self.blind:
             reward = self.blindness_reward
@@ -69,7 +84,8 @@ class GlaucomaWrapper(gym.Wrapper):
 
     def erase_pixels(self, observation):
         if self.erased_pixel > 0:
-            rows, cols = zip(*self.pixels[:self.erased_pixel])
+            rows = self.pixels_rows[:self.erased_pixel]
+            cols = self.pixels_cols[:self.erased_pixel]
             observation[:, rows, cols] = 0
         return observation
 

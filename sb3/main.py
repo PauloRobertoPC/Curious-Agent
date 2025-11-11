@@ -3,7 +3,10 @@ import sys
 import time
 import cv2
 import torch
+import argparse
 import numpy as np
+
+from utils import *
 
 from gymnasium.wrappers import RecordVideo
 from gymnasium.utils.play import play as playing
@@ -23,12 +26,12 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from env.vizdoomenv import VizDoomGym
 from wrappers.render_wrapper import RenderWrapper
 from wrappers.glaucoma import GlaucomaWrapper
-from wrappers.intrinsic_reward import IntrinsicRewardWrapper
 from wrappers.image_transformation import ImageTransformationWrapper
+from wrappers.rnd_wrapper import RNDWrapper
 
-CHECKPOINT_DIR = "./train/health_gathering"
-LOG_DIR = "./logs/log_health_gathering"
-MODEL_NAME = f"./train/health_gathering/best_model_500000"
+CHECKPOINT_DIR = ""
+LOG_DIR = ""
+MODEL_NAME = ""
 
 class ModelCamWrapper(torch.nn.Module):
     def __init__(self, model: torch.nn.Module):
@@ -100,12 +103,13 @@ class TrainAndLoggingCallback(BaseCallback):
         self.buffer = None
 
     def _init_callback(self):
-        if self.save_path is not None:
-            os.makedirs(self.save_path, exist_ok=True)
         self.buffer = self.model.rollout_buffer
             
 
     def _on_step(self) -> bool:
+        if "max_glaucoma_len" in self.locals["infos"][0]:
+            self.logger.record("glaucoma/max_glaucoma_len", self.locals["infos"][0]["max_glaucoma_len"])
+            self.logger.record("glaucoma/max_steps_with_hungry", self.locals["infos"][0]["max_steps_with_hungry"])
         if self.n_calls%self.check_freq == 0:
             model_path = os.path.join(self.save_path, f"best_model_{self.n_calls}")
             self.model.save(model_path)
@@ -114,26 +118,27 @@ class TrainAndLoggingCallback(BaseCallback):
     def _on_rollout_end(self) -> None:
         pass
 
-def make_env(render_mode=None):
+def make_env(glaucoma_level:int, reward:str, render_mode=None):
+    print(f"ENV CONFIG -> {locals()}")
     env = VizDoomGym(render_mode=render_mode)
     env = ImageTransformationWrapper(env, (161, 161))
-    env = GlaucomaWrapper(env, 0, 150, -100)
+    env = GlaucomaWrapper(env, 0, glaucoma_level, -100)
     
-    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # env = IntrinsicRewardWrapper(env)
+    if reward == "rnd":
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        env = RNDWrapper(env, device=device)
     
     if render_mode == "rgb_array":
         env = RenderWrapper(env)
         env = RecordVideo(env, video_folder="./videos", episode_trigger=lambda x: True)
     return env
 
-def play(randomly=False):
-    env = make_env(render_mode=None)
-    model = None
-    cam = None
-    if not randomly:
-        model = PPO.load(MODEL_NAME)
-        cam = instantiate_cam(ModelCamWrapper(model.policy))
+def play():
+    config = read_experiment_info(CHECKPOINT_DIR)
+    config["reward"] = "extrinsic"
+    env = make_env(render_mode=None, **config)
+    model = PPO.load(MODEL_NAME)
+    cam = instantiate_cam(ModelCamWrapper(model.policy))
     
     episodes = 5
     for episode in range(episodes):
@@ -141,12 +146,8 @@ def play(randomly=False):
         finished = False
         obs, _ = env.reset()
         while not finished:
-            if randomly:
-                action = env.action_space.sample()
-                show_game(obs)
-            else:
-                action, _ = model.predict(obs)
-                show_game(obs, cam, [ClassifierOutputTarget(action)])
+            action, _ = model.predict(obs)
+            show_game(obs, cam, [ClassifierOutputTarget(action)])
             obs, reward, done, truncated, info = env.step(action)
             time.sleep(0.05)
             total_reward += reward
@@ -174,19 +175,22 @@ def record():
 
     env.close()
     
-def evaluate():
+def evaluate(eval_episodes):
+    config = read_experiment_info(CHECKPOINT_DIR)
+    config["reward"] = "extrinsic"
+    env = make_env(render_mode=None, **config)
+
     model = PPO.load(MODEL_NAME)
     
-    env = make_env()
-
-    mean_reward, _ = evaluate_policy(model, env, n_eval_episodes=10)
+    mean_reward, _ = evaluate_policy(model, env, n_eval_episodes=eval_episodes)
 
     env.close()
 
     print(mean_reward)
 
-def train():
-    envs = make_vec_env(make_env, n_envs=1)
+def train(glaucoma_level:int, reward:str):
+    save_experiment_info(CHECKPOINT_DIR, locals())
+    envs = make_vec_env(make_env, n_envs=1, env_kwargs=locals())
     callback = TrainAndLoggingCallback(check_freq=10000, save_path=CHECKPOINT_DIR)
     
     model = PPO("CnnPolicy", envs, tensorboard_log=LOG_DIR, learning_rate=0.0001, n_steps=4096, policy_kwargs=dict(normalize_images=False))
@@ -194,22 +198,33 @@ def train():
     model.learn(total_timesteps=2000000, callback=callback, progress_bar=True)
     
     envs.close()
-    
-
-def callback_playing(obs_t, obs_tp1, action, reward, terminated, truncated, info):
-    # cv2.imwrite("output.png", np.moveaxis(obs_tp1, 0, -1))
-    print(reward)
-    # print(info)
-
-def play_human():
-    env = make_env(render_mode="rgb_array")
-    playing(env, keys_to_action={ "a": 0, "d": 1, "w": 2 }, wait_on_player=True, callback=callback_playing)
-    env.close()
-
 
 if __name__ == "__main__":
-    # train()
-    # evaluate()
-    play(False)
-    # record()
-    # play_human()
+    parser = argparse.ArgumentParser(description="Reinforcement Learning with Stables Baseline 3")
+    parser.add_argument("--action", required=True, type=str, choices=["train", "play", "evaluate"], help="'train' the agent, watch it 'play' or 'evaluate' its rewards")
+    parser.add_argument("--experiment", required=True, type=str, help="experiment name, all the files regarding this experiment will be saved in train/<experiment>")
+    parser.add_argument("--reward", type=str, choices=["rnd", "extrinsic"], help="reward given to the agent(required in train)")
+    parser.add_argument("--glaucoma_level", type=int, help="glaucoma growth intensity(required in train)")
+    parser.add_argument("--model", type=int, help="the model number you wanna se the agent using as the policy(it should be multiple of 10000)(required in play and evaluate)")
+    parser.add_argument("--eval_episodes", type=int, default=10, help="total of episodes you want to evaluate the reward(used in evaluate)")
+
+    args = parser.parse_args()
+
+    CHECKPOINT_DIR = f"./train/{args.experiment}"
+    LOG_DIR = f"./logs/{args.experiment}"
+
+    if args.action == "train":
+        # deciding what to do if the experiment already exists
+        check_experiment_on_train(args, CHECKPOINT_DIR, LOG_DIR)
+        # checking if argument were passed
+        check_reward(parser, args)
+        check_glaucoma_level(parser, args)
+        # train itself
+        train(args.glaucoma_level, args.reward)
+    elif args.action == "play":
+        MODEL_NAME = check_experiment_on_play(parser, args, CHECKPOINT_DIR)
+        play()
+    elif args.action == "evaluate":
+        MODEL_NAME = check_experiment_on_play(parser, args, CHECKPOINT_DIR)
+        evaluate(args.eval_episodes)
+    # # record()

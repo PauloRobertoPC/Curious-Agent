@@ -12,7 +12,7 @@ def custom_env_override_defaults(_env, parser):
     parser.set_defaults(
         #experiment="doom_health_gathering/glaucoma_/01_glaucoma_see_1111_u.rnn_True_b.siz_2048_g.lev_50_r.typ_extrinsic_env_health_gathering_glaucoma"
         save_video=True,
-        max_num_episodes=2,
+        max_num_episodes=5,
         experiment="glaucoma150"
     )
 

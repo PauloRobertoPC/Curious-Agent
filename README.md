@@ -31,3 +31,16 @@ uv run sf/play.py --env=health_gathering_glaucoma
 ```bash 
 uv run -m tensorboard.main --logdir=./train_dir
 ```
+
+# Books to read
+1. Autopoieses and Biology of Intentionality
+2. Goal as Emergent Autopoietic Processes
+3. Autopoieses and Perception
+4. Autopoieses and Cognition
+
+# Qualificação
+
+## Capítulos
+
+- Trabalhos Relacionados
+- Fundamentação Teórica

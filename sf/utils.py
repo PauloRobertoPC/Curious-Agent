@@ -15,7 +15,6 @@ from sample_factory.cfg.arguments import parse_full_cfg, parse_sf_args
 from env.vizdoomenv import VizDoomGym
 from wrappers.render_wrapper import RenderWrapper
 from wrappers.glaucoma import GlaucomaWrapper
-from wrappers.intrinsic_reward import IntrinsicRewardWrapper
 from wrappers.image_transformation import ImageTransformationWrapper
 
 from sample_factory.launcher.run_description import Experiment, ParamGrid, RunDescription

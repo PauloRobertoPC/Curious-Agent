@@ -43,6 +43,7 @@ class ModelCamWrapper(torch.nn.Module):
         return outputs['action_logits']
 
 def instantiate_cam(model):
+    print(model)
     target_layers = [
         # model.model.encoder.encoders.obs.enc.conv_head[-6],
         # model.model.encoder.encoders.obs.enc.conv_head[-5],
@@ -73,7 +74,7 @@ def generate_cam(cam, img, targets):
     img = img.permute(1, 2, 0).cpu().numpy() # convert to HWC and numpy
     img = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8UC1)
     rgb_image = np.stack([img, img, img], axis=2).astype(np.float32) / 255.0
-    visualization = show_cam_on_image(rgb_image, grayscale_cam, use_rgb=True)
+    visualization = show_cam_on_image(rgb_image, grayscale_cam, use_rgb=True, colormap=cv2.COLORMAP_JET, image_weight=0.5)
     return visualization
 
 def visualize_policy_inputs(normalized_obs: Dict[str, Tensor], cam, targets) -> None:
