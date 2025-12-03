@@ -287,7 +287,7 @@ wheels = [
 
 [[package]]
 name = "gymnasium"
-version = "0.29.1"
+version = "1.2.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cloudpickle" },
@@ -295,9 +295,9 @@ dependencies = [
     { name = "numpy" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0d/f8/5699ddb3e1c4f6d97b8930e573074849b921da8374fccd141f0f3a9bd713/gymnasium-0.29.1.tar.gz", hash = "sha256:1a532752efcb7590478b1cc7aa04f608eb7a2fdad5570cd217b66b6a35274bb1", size = 820485, upload-time = "2023-08-21T13:07:32.024Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/1b/1c/d70b2ddd067992fa0332deae08293ef2dc489917ac5342e0e4b8850641f6/gymnasium-1.2.2.tar.gz", hash = "sha256:46d927328f8518bb5a689dbe270d228c1da2b08bcb71ae0152c10aa66f48d530", size = 829250, upload-time = "2025-11-04T15:21:06.048Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a8/4d/3cbfd81ed84db450dbe73a89afcd8bc405273918415649ac6683356afe92/gymnasium-0.29.1-py3-none-any.whl", hash = "sha256:61c3384b5575985bb7f85e43213bcb40f36fcdff388cae6bc229304c71f2843e", size = 953939, upload-time = "2023-08-21T13:07:29.934Z" },
+    { url = "https://files.pythonhosted.org/packages/c7/53/39cd8c2f85e213fce1f32367c4bdbd3402d3bcde7d0826a1172a0f2c5cc0/gymnasium-1.2.2-py3-none-any.whl", hash = "sha256:f04ec362b1fdf73a8b327db5ef89384a3f2ba411e05d3521513414fbbb2199c8", size = 952118, upload-time = "2025-11-04T15:21:03.484Z" },
 ]
 
 [[package]]
@@ -1113,7 +1113,7 @@ wheels = [
 
 [[package]]
 name = "stable-baselines3"
-version = "2.6.0"
+version = "2.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cloudpickle" },
@@ -1123,9 +1123,9 @@ dependencies = [
     { name = "pandas" },
     { name = "torch" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/df/25/e71fabe1fdce82118a12bd8a92900d9b5c33d2a7e545ebcf5a582a5d23e9/stable_baselines3-2.6.0.tar.gz", hash = "sha256:972ef537a9a8f2b9de06cdca87ef1f33df5fc8239cfe64fed88976d7c799c2f7", size = 214085, upload-time = "2025-03-24T14:33:14.562Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/56/cc/9a334071fae143bc7177e17a3191db83c1a4bf9038b09c4c5a34e427ca33/stable_baselines3-2.7.0.tar.gz", hash = "sha256:5258561e5becd15234274262cf09fcb9a082a73c2c67a85322f5652a05195ec4", size = 219012, upload-time = "2025-07-25T09:54:35.113Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/54/60/6900e8186168e6e23a2125655fb4fe53130256480cc7950dadcee030cd67/stable_baselines3-2.6.0-py3-none-any.whl", hash = "sha256:d4a4c95b5593c6135a5764767d829498677559069110aa3768fe1254f1c457e3", size = 184525, upload-time = "2025-03-24T14:33:12.437Z" },
+    { url = "https://files.pythonhosted.org/packages/89/df/6b074e5b8e8437aac0b05e12749565f4613152016daddd45d414269b09d6/stable_baselines3-2.7.0-py3-none-any.whl", hash = "sha256:3de94fab840b3eb379a352c8d9b390998686d2fcb41de36298066935eef94bea", size = 187216, upload-time = "2025-07-25T09:54:30.55Z" },
 ]
 
 [package.optional-dependencies]
@@ -1365,7 +1365,7 @@ dependencies = [
 requires-dist = [
     { name = "colorlog", specifier = ">=6.9.0" },
     { name = "grad-cam", specifier = ">=1.5.5" },
-    { name = "gymnasium", specifier = ">=0.29.1" },
+    { name = "gymnasium" },
     { name = "huggingface-hub", specifier = ">=0.33.2" },
     { name = "inquirerpy", specifier = ">=0.3.4" },
     { name = "moviepy", specifier = ">=2.1.2" },

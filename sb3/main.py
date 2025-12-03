@@ -118,9 +118,9 @@ class TrainAndLoggingCallback(BaseCallback):
     def _on_rollout_end(self) -> None:
         pass
 
-def make_env(glaucoma_level:int, reward:str, render_mode=None):
+def make_env(glaucoma_level:int, reward:str, eval_layout:int, render_mode=None):
     print(f"ENV CONFIG -> {locals()}")
-    env = VizDoomGym(render_mode=render_mode)
+    env = VizDoomGym(eval_layout=eval_layout, render_mode=render_mode)
     env = ImageTransformationWrapper(env, (161, 161))
     env = GlaucomaWrapper(env, 0, glaucoma_level, -100)
     
@@ -133,10 +133,10 @@ def make_env(glaucoma_level:int, reward:str, render_mode=None):
         env = RecordVideo(env, video_folder="./videos", episode_trigger=lambda x: True)
     return env
 
-def play():
+def play(eval_layout:int):
     config = read_experiment_info(CHECKPOINT_DIR)
     config["reward"] = "extrinsic"
-    env = make_env(render_mode=None, **config)
+    env = make_env(eval_layout=eval_layout, render_mode=None, **config)
     model = PPO.load(MODEL_NAME)
     cam = instantiate_cam(ModelCamWrapper(model.policy))
     
@@ -157,8 +157,8 @@ def play():
 
     env.close()
 
-def record():
-    env = make_env(render_mode="rgb_array")
+def record(eval_layout):
+    env = make_env(eval_layout=eval_layout, render_mode="rgb_array")
     model = PPO.load(MODEL_NAME)
     
     episodes = 5
@@ -175,10 +175,10 @@ def record():
 
     env.close()
     
-def evaluate(eval_episodes):
+def evaluate(eval_episodes:int, eval_layout:int):
     config = read_experiment_info(CHECKPOINT_DIR)
     config["reward"] = "extrinsic"
-    env = make_env(render_mode=None, **config)
+    env = make_env(eval_layout=eval_layout, render_mode=None, **config)
 
     model = PPO.load(MODEL_NAME)
     
@@ -190,8 +190,10 @@ def evaluate(eval_episodes):
 
 def train(glaucoma_level:int, reward:str):
     save_experiment_info(CHECKPOINT_DIR, locals())
+    eval_layout = 0
+    print(locals())
     envs = make_vec_env(make_env, n_envs=1, env_kwargs=locals())
-    callback = TrainAndLoggingCallback(check_freq=10000, save_path=CHECKPOINT_DIR)
+    callback = TrainAndLoggingCallback(check_freq=CHECKPOINT_FREQUENCY, save_path=CHECKPOINT_DIR)
     
     model = PPO("CnnPolicy", envs, tensorboard_log=LOG_DIR, learning_rate=0.0001, n_steps=4096, policy_kwargs=dict(normalize_images=False))
     
@@ -199,14 +201,26 @@ def train(glaucoma_level:int, reward:str):
     
     envs.close()
 
+def play_human(eval_layout:int):
+    env = VizDoomGym(eval_layout=eval_layout, render_mode="rgb_array")
+    key_to_action = {
+        "a": 0,
+        "d": 1,
+        "w": 2
+    }
+    playing(env, keys_to_action=key_to_action, wait_on_player=True)
+    env.close()
+
 if __name__ == "__main__":
+    print(CHECKPOINT_FREQUENCY)
     parser = argparse.ArgumentParser(description="Reinforcement Learning with Stables Baseline 3")
-    parser.add_argument("--action", required=True, type=str, choices=["train", "play", "evaluate"], help="'train' the agent, watch it 'play' or 'evaluate' its rewards")
-    parser.add_argument("--experiment", required=True, type=str, help="experiment name, all the files regarding this experiment will be saved in train/<experiment>")
+    parser.add_argument("--action", required=True, type=str, choices=["train", "play", "evaluate", "debug"], help="'train' the agent, watch it 'play','evaluate' its rewards or 'debug' the unwraped enviroment")
+    parser.add_argument("--experiment", type=str, help="experiment name, all the files regarding this experiment will be saved in train/<experiment>")
     parser.add_argument("--reward", type=str, choices=["rnd", "extrinsic"], help="reward given to the agent(required in train)")
     parser.add_argument("--glaucoma_level", type=int, help="glaucoma growth intensity(required in train)")
-    parser.add_argument("--model", type=int, help="the model number you wanna se the agent using as the policy(it should be multiple of 10000)(required in play and evaluate)")
+    parser.add_argument("--model", type=int, help=f"the model number you wanna se the agent using as the policy(it should be multiple of {CHECKPOINT_FREQUENCY})(required in play and evaluate)")
     parser.add_argument("--eval_episodes", type=int, default=10, help="total of episodes you want to evaluate the reward(used in evaluate)")
+    parser.add_argument("--layout", type=int, help="layout to be played 0 - random, 1 - square, 2 - circle, 3 - sine curve, 4 - grid")
 
     args = parser.parse_args()
 
@@ -223,8 +237,12 @@ if __name__ == "__main__":
         train(args.glaucoma_level, args.reward)
     elif args.action == "play":
         MODEL_NAME = check_experiment_on_play(parser, args, CHECKPOINT_DIR)
-        play()
+        check_layout(parser, args)
+        play(args.layout)
     elif args.action == "evaluate":
         MODEL_NAME = check_experiment_on_play(parser, args, CHECKPOINT_DIR)
-        evaluate(args.eval_episodes)
-    # # record()
+        check_layout(parser, args)
+        evaluate(eval_episodes=args.eval_episodes, eval_layout=args.layout)
+    elif args.action == "debug":
+        check_layout(parser, args)
+        play_human(args.layout)

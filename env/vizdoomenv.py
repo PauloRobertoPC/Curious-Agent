@@ -7,11 +7,14 @@ import numpy as np
 class VizDoomGym(Env):
     metadata = { "render_modes": ["human", "rgb_array"], "render_fps": 30 }
 
-    def __init__(self, render_mode=None) -> None:
+    def __init__(self, eval_layout:int, render_mode=None) -> None:
         super().__init__()
         
         self.game = DoomGame()
-        self.game.load_config("./scenarios/health_gathering.cfg")
+        # choosing layout
+        self.game.add_game_args(f"+set eval_layout {eval_layout} +set tics_to_spawn_after_eat 120")
+        self.game.load_config("./scenarios/health_gathering2.cfg")
+
         
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode

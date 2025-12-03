@@ -70,7 +70,7 @@ class RNDWrapper(gym.Wrapper):
         with torch.no_grad():
             intrinsic_reward = self.rnd_model(obs_tensor).item()
 
-        new_reward = 10000*intrinsic_reward
+        new_reward = 1000*intrinsic_reward
 
         self.obs_buffer.append(obs_tensor)
         self.steps_done += 1

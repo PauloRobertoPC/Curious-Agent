@@ -4,6 +4,8 @@ import shutil
 from pathlib import Path
 from InquirerPy import inquirer
 
+CHECKPOINT_FREQUENCY = 100000
+
 
 def check_experiment_on_train(args, train_dir:str, log_dir:str):
 
@@ -45,6 +47,11 @@ def check_glaucoma_level(parser, args):
     if args.glaucoma_level < 0:
         parser.error("--glaucoma_level must be >= 0")
 
+def check_layout(parser, args):
+    # checking if the arguments are given and correct
+    if args.layout is None:
+        parser.error("--layout must be passed")
+
 def check_experiment_on_play(parser, args, CHECKPOINT_DIR) -> str:
     # checking if the experiment exists
     dir_path_train = Path(CHECKPOINT_DIR)
@@ -55,8 +62,8 @@ def check_experiment_on_play(parser, args, CHECKPOINT_DIR) -> str:
     # checking if the arguments are given and correct
     if args.model is None:
         parser.error("--model must be passed in playing, because it's the policy")
-    if args.model%10000 != 0:
-        parser.error("--model must be a multiple of 10000")
+    if args.model%CHECKPOINT_FREQUENCY != 0:
+        parser.error(f"--model must be a multiple of {CHECKPOINT_FREQUENCY}")
     MODEL_NAME = f'{CHECKPOINT_DIR}/best_model_{args.model}'
     # checking if the file exists
     file_path = Path(f'{MODEL_NAME}.zip')
