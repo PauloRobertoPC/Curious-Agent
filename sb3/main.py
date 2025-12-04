@@ -259,10 +259,11 @@ def evaluate(eval_episodes:int, eval_layout:int):
     print(mean_reward)
 
 def train(glaucoma_level:int, reward:str, strength:int):
-    save_experiment_info(CHECKPOINT_DIR, locals())
+    save_experiment_info(f"./train/{reward}{strength}_{glaucoma_level}g", locals())
     eval_layout = 0
     print(locals())
     envs = make_vec_env(make_env, n_envs=1, env_kwargs=locals())
+    CHECKPOINT_DIR = f"./train/{reward}{strength}_{glaucoma_level}g"
     callback = TrainAndLoggingCallback(check_freq=CHECKPOINT_FREQUENCY, save_path=CHECKPOINT_DIR, glaucoma_level=glaucoma_level)
     
     model = PPO("CnnPolicy", envs, tensorboard_log=LOG_DIR, learning_rate=0.0001, n_steps=4096, policy_kwargs=dict(normalize_images=False))
