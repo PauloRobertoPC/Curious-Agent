@@ -6,6 +6,23 @@ from InquirerPy import inquirer
 
 CHECKPOINT_FREQUENCY = 100000
 
+def overwrite_experiment_on_train(train_dir:str, log_dir:str):
+    dir_path_train = Path(train_dir)
+    dir_path_log = Path(log_dir)
+
+    directory_train_exists = dir_path_train.exists() and dir_path_train.is_dir()
+    directory_log_exists = dir_path_log.exists() and dir_path_log.is_dir()
+
+    if directory_train_exists:
+        print("Overwriting last train...")
+        print("New training starting...")
+        shutil.rmtree(dir_path_train)
+        if directory_log_exists:
+            shutil.rmtree(dir_path_log)
+
+    os.makedirs(train_dir, exist_ok=True)
+    os.makedirs(log_dir, exist_ok=True)
+
 
 def check_experiment_on_train(args, train_dir:str, log_dir:str):
 
@@ -39,6 +56,11 @@ def check_reward(parser, args):
     # checking if the arguments are given and correct
     if args.reward is None:
         parser.error("--reward must be passed in training")
+        
+def check_rnd_strength(parser, args):
+    # checking if the arguments are given and correct
+    if args.reward is None:
+        parser.error("--rnd_strength must be passed in training")
 
 def check_glaucoma_level(parser, args):
     # checking if the arguments are given and correct

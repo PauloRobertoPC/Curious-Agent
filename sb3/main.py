@@ -5,6 +5,7 @@ import cv2
 import torch
 import argparse
 import numpy as np
+from collections import deque
 
 from utils import *
 
@@ -94,31 +95,7 @@ def show_game(obs, cam=None, targets=None):
     cv2.imshow("Agent Playing", image_bgr)
     cv2.waitKey(1)
 
-class TrainAndLoggingCallback(BaseCallback):
-
-    def __init__(self, check_freq:int, save_path:str, verbose:int = 0):
-        super(TrainAndLoggingCallback, self).__init__(verbose)
-        self.check_freq = check_freq
-        self.save_path = save_path
-        self.buffer = None
-
-    def _init_callback(self):
-        self.buffer = self.model.rollout_buffer
-            
-
-    def _on_step(self) -> bool:
-        if "max_glaucoma_len" in self.locals["infos"][0]:
-            self.logger.record("glaucoma/max_glaucoma_len", self.locals["infos"][0]["max_glaucoma_len"])
-            self.logger.record("glaucoma/max_steps_with_hungry", self.locals["infos"][0]["max_steps_with_hungry"])
-        if self.n_calls%self.check_freq == 0:
-            model_path = os.path.join(self.save_path, f"best_model_{self.n_calls}")
-            self.model.save(model_path)
-        return True
-    
-    def _on_rollout_end(self) -> None:
-        pass
-
-def make_env(glaucoma_level:int, reward:str, eval_layout:int, render_mode=None):
+def make_env(glaucoma_level:int, reward:str, eval_layout:int, strength=0, render_mode=None):
     print(f"ENV CONFIG -> {locals()}")
     env = VizDoomGym(eval_layout=eval_layout, render_mode=render_mode)
     env = ImageTransformationWrapper(env, (161, 161))
@@ -126,12 +103,105 @@ def make_env(glaucoma_level:int, reward:str, eval_layout:int, render_mode=None):
     
     if reward == "rnd":
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        env = RNDWrapper(env, device=device)
+        env = RNDWrapper(env=env, rnd_strength=strength, device=device)
     
     if render_mode == "rgb_array":
         env = RenderWrapper(env)
         env = RecordVideo(env, video_folder="./videos", episode_trigger=lambda x: True)
     return env
+
+def play_episode(env, model):
+    total_reward = 0
+    finished = False
+    info = {}
+    obs, _ = env.reset()
+    ep_len = 0
+    while not finished:
+        action, _ = model.predict(obs)
+        obs, reward, done, truncated, info = env.step(action)
+        total_reward += reward
+        ep_len += 1
+        finished = done or truncated
+    return ep_len, info
+
+class TrainAndLoggingCallback(BaseCallback):
+
+    def __init__(self, check_freq:int, save_path:str, glaucoma_level:int, verbose:int = 0):
+        super(TrainAndLoggingCallback, self).__init__(verbose)
+        self.check_freq = check_freq
+        self.save_path = save_path
+        self.buffer = None
+
+        self.random_len_ep = 0
+        self.random_mean_len_ep = deque(maxlen=50)
+        self.random_mean_max_glaucoma_len = deque(maxlen=50)
+        self.random_mean_max_steps_with_hungry = deque(maxlen=50)
+
+        self.eval_name = ["square", "circle", "sin", "grid"]
+        self.eval_envs = []
+        self.eval_len = []
+        self.eval_max_glaucoma_len = []
+        self.eval_max_steps_with_hungry = []
+        for i in range(1, 5):
+            self.eval_envs.append(make_env(glaucoma_level=glaucoma_level, reward="extrinsic", eval_layout=i))
+            self.eval_len.append(deque(maxlen=50))
+            self.eval_max_glaucoma_len.append(deque(maxlen=50))
+            self.eval_max_steps_with_hungry.append(deque(maxlen=50))
+
+    def _init_callback(self):
+        self.buffer = self.model.rollout_buffer
+            
+
+    def _on_step(self) -> bool:
+        self.random_len_ep += 1
+        if "max_glaucoma_len" in self.locals["infos"][0]:
+
+            # adding info
+            self.random_mean_len_ep.append(self.random_len_ep)
+            self.random_mean_max_glaucoma_len.append(self.locals["infos"][0]["max_glaucoma_len"])
+            self.random_mean_max_steps_with_hungry.append(self.locals["infos"][0]["max_steps_with_hungry"])
+            # logging raw values
+            self.logger.record(f"glaucoma/random/episode_len", self.random_len_ep)
+            self.logger.record(f"glaucoma/random/max_glaucoma_len", self.locals["infos"][0]["max_glaucoma_len"])
+            self.logger.record(f"glaucoma/random/max_steps_with_hungry", self.locals["infos"][0]["max_steps_with_hungry"])
+            # logging mean values
+            self.logger.record(f"glaucoma/random/mean_episode_len", np.mean(self.random_len_ep))
+            self.logger.record(f"glaucoma/random/mean_max_glaucoma_len", np.mean(self.random_mean_max_glaucoma_len))
+            self.logger.record(f"glaucoma/random/mean_max_steps_with_hungry", np.mean(self.random_mean_max_steps_with_hungry))
+
+            self.random_len_ep = 0
+
+            aux_model_path = os.path.join(self.save_path, f"aux")
+            self.model.save(aux_model_path)
+            
+            model = PPO.load(aux_model_path)
+            for i, env in enumerate(self.eval_envs):
+                # playing
+                len_ep, info = play_episode(env, model)
+                # adding info
+                self.eval_len[i].append(len_ep)
+                self.eval_max_glaucoma_len[i].append(info["max_glaucoma_len"])
+                self.eval_max_steps_with_hungry[i].append(info["max_steps_with_hungry"])
+                # logging raw values
+                self.logger.record(f"glaucoma/{self.eval_name[i]}/episode_len", len_ep)
+                self.logger.record(f"glaucoma/{self.eval_name[i]}/max_glaucoma_len", info["max_glaucoma_len"])
+                self.logger.record(f"glaucoma/{self.eval_name[i]}/max_steps_with_hungry", info["max_steps_with_hungry"])
+                # logging mean values
+                self.logger.record(f"glaucoma/{self.eval_name[i]}/mean_episode_len", np.mean(self.eval_len[i]))
+                self.logger.record(f"glaucoma/{self.eval_name[i]}/mean_max_glaucoma_len", np.mean(self.eval_max_glaucoma_len[i]))
+                self.logger.record(f"glaucoma/{self.eval_name[i]}/mean_max_steps_with_hungry", np.mean(self.eval_max_steps_with_hungry[i]))
+
+            os.remove(f"{aux_model_path}.zip")
+
+
+        if self.n_calls%self.check_freq == 0:
+            model_path = os.path.join(self.save_path, f"best_model_{self.n_calls}")
+            self.model.save(model_path)
+
+        return True
+    
+    def _on_rollout_end(self) -> None:
+        pass
 
 def play(eval_layout:int):
     config = read_experiment_info(CHECKPOINT_DIR)
@@ -188,12 +258,12 @@ def evaluate(eval_episodes:int, eval_layout:int):
 
     print(mean_reward)
 
-def train(glaucoma_level:int, reward:str):
+def train(glaucoma_level:int, reward:str, strength:int):
     save_experiment_info(CHECKPOINT_DIR, locals())
     eval_layout = 0
     print(locals())
     envs = make_vec_env(make_env, n_envs=1, env_kwargs=locals())
-    callback = TrainAndLoggingCallback(check_freq=CHECKPOINT_FREQUENCY, save_path=CHECKPOINT_DIR)
+    callback = TrainAndLoggingCallback(check_freq=CHECKPOINT_FREQUENCY, save_path=CHECKPOINT_DIR, glaucoma_level=glaucoma_level)
     
     model = PPO("CnnPolicy", envs, tensorboard_log=LOG_DIR, learning_rate=0.0001, n_steps=4096, policy_kwargs=dict(normalize_images=False))
     
@@ -211,16 +281,30 @@ def play_human(eval_layout:int):
     playing(env, keys_to_action=key_to_action, wait_on_player=True)
     env.close()
 
+def experiments():
+    rewards = [("rnd", 10000), ("extrinsic", 0), ("rnd", 1000), ("rnd", 100000)]
+    glaucoma_levels = [50, 100, 150, 200, 250, 300]
+    for reward in rewards:
+        for glaucoma_level in glaucoma_levels:
+            experiment = f"{reward[0]}{reward[1]}_{glaucoma_level}g"
+            print(experiment)
+            CHECKPOINT_DIR = f"./train/{experiment}"
+            LOG_DIR = f"./logs/{experiment}"
+            overwrite_experiment_on_train(CHECKPOINT_DIR, LOG_DIR)
+            train(glaucoma_level, reward[0], reward[1])
+
+
 if __name__ == "__main__":
     print(CHECKPOINT_FREQUENCY)
     parser = argparse.ArgumentParser(description="Reinforcement Learning with Stables Baseline 3")
-    parser.add_argument("--action", required=True, type=str, choices=["train", "play", "evaluate", "debug"], help="'train' the agent, watch it 'play','evaluate' its rewards or 'debug' the unwraped enviroment")
+    parser.add_argument("--action", required=True, type=str, choices=["train", "play", "evaluate", "debug", "experiment"], help="'train' the agent, watch it 'play','evaluate' its rewards, 'debug' the unwraped enviroment or perform 'experiment' as in experiments function")
     parser.add_argument("--experiment", type=str, help="experiment name, all the files regarding this experiment will be saved in train/<experiment>")
     parser.add_argument("--reward", type=str, choices=["rnd", "extrinsic"], help="reward given to the agent(required in train)")
     parser.add_argument("--glaucoma_level", type=int, help="glaucoma growth intensity(required in train)")
     parser.add_argument("--model", type=int, help=f"the model number you wanna se the agent using as the policy(it should be multiple of {CHECKPOINT_FREQUENCY})(required in play and evaluate)")
     parser.add_argument("--eval_episodes", type=int, default=10, help="total of episodes you want to evaluate the reward(used in evaluate)")
     parser.add_argument("--layout", type=int, help="layout to be played 0 - random, 1 - square, 2 - circle, 3 - sine curve, 4 - grid")
+    parser.add_argument("--rnd_strength", type=int, help="multiplier for the intrinsic reward calculated by the rnd")
 
     args = parser.parse_args()
 
@@ -233,8 +317,12 @@ if __name__ == "__main__":
         # checking if argument were passed
         check_reward(parser, args)
         check_glaucoma_level(parser, args)
+        st = 0
+        if args.reward == "rnd":
+            check_rnd_strength(parser, args)
+            st = args.rnd_strength
         # train itself
-        train(args.glaucoma_level, args.reward)
+        train(args.glaucoma_level, args.reward, st)
     elif args.action == "play":
         MODEL_NAME = check_experiment_on_play(parser, args, CHECKPOINT_DIR)
         check_layout(parser, args)
@@ -246,3 +334,5 @@ if __name__ == "__main__":
     elif args.action == "debug":
         check_layout(parser, args)
         play_human(args.layout)
+    elif args.action == "experiment":
+        experiments()

@@ -47,10 +47,12 @@ class RNDModel(nn.Module):
 
 
 class RNDWrapper(gym.Wrapper):
-    def __init__(self, env: gym.Env, batch_size: int = 32, learning_rate: float = 1e-4, device: str = 'cpu'):
+    def __init__(self, env: gym.Env, rnd_strength:int, batch_size: int = 32, learning_rate: float = 1e-4, device: str = 'cpu'):
         super().__init__(env)
         self.device = device
         self.batch_size = batch_size
+
+        self.rnd_strength = rnd_strength
 
         self.rnd_model = RNDModel().to(device)
         self.optimizer = torch.optim.Adam(self.rnd_model.predictor.parameters(), lr=learning_rate)
@@ -70,7 +72,7 @@ class RNDWrapper(gym.Wrapper):
         with torch.no_grad():
             intrinsic_reward = self.rnd_model(obs_tensor).item()
 
-        new_reward = 1000*intrinsic_reward
+        new_reward = self.rnd_strength*intrinsic_reward
 
         self.obs_buffer.append(obs_tensor)
         self.steps_done += 1
