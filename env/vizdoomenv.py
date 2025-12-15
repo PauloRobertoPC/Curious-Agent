@@ -45,11 +45,14 @@ class VizDoomGym(Env):
         if self.game.get_state():
             img = state.screen_buffer
             info = { "ammo": state.game_variables[0], "medkits_used": int(state.game_variables[1]) }
+            self.last_medkits_used = int(state.game_variables[1])
         else:
             img = np.zeros(self.observation_space.shape, dtype=np.uint8)
             info = { "ammo": 0, "medkits_used": 0 }
 
         done = self.game.is_episode_finished()
+        if done:
+            info["medkits_used"] = self.last_medkits_used
         
         return img, reward, done, False, info
 

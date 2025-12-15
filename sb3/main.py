@@ -136,17 +136,20 @@ class TrainAndLoggingCallback(BaseCallback):
         self.random_mean_len_ep = deque(maxlen=50)
         self.random_mean_max_glaucoma_len = deque(maxlen=50)
         self.random_mean_max_steps_with_hungry = deque(maxlen=50)
+        self.random_mean_medkits_used = deque(maxlen=50)
 
         self.eval_name = ["square", "circle", "sin", "grid"]
         self.eval_envs = []
         self.eval_len = []
         self.eval_max_glaucoma_len = []
         self.eval_max_steps_with_hungry = []
+        self.eval_medkits_used = []
         for i in range(1, 5):
             self.eval_envs.append(make_env(glaucoma_level=glaucoma_level, reward="extrinsic", eval_layout=i))
             self.eval_len.append(deque(maxlen=50))
             self.eval_max_glaucoma_len.append(deque(maxlen=50))
             self.eval_max_steps_with_hungry.append(deque(maxlen=50))
+            self.eval_medkits_used.append(deque(maxlen=50))
 
     def _init_callback(self):
         self.buffer = self.model.rollout_buffer
@@ -160,14 +163,18 @@ class TrainAndLoggingCallback(BaseCallback):
             self.random_mean_len_ep.append(self.random_len_ep)
             self.random_mean_max_glaucoma_len.append(self.locals["infos"][0]["max_glaucoma_len"])
             self.random_mean_max_steps_with_hungry.append(self.locals["infos"][0]["max_steps_with_hungry"])
+            self.random_mean_medkits_used.append(self.locals["infos"][0]["medkits_used"])
             # logging raw values
-            self.logger.record(f"glaucoma/random/episode_len", self.random_len_ep)
-            self.logger.record(f"glaucoma/random/max_glaucoma_len", self.locals["infos"][0]["max_glaucoma_len"])
-            self.logger.record(f"glaucoma/random/max_steps_with_hungry", self.locals["infos"][0]["max_steps_with_hungry"])
+            self.logger.record(f"random/episode_len", self.random_len_ep)
+            self.logger.record(f"random/max_glaucoma_len", self.locals["infos"][0]["max_glaucoma_len"])
+            self.logger.record(f"random/max_steps_with_hungry", self.locals["infos"][0]["max_steps_with_hungry"])
+            self.logger.record(f"random/medkits_used", self.locals["infos"][0]["medkits_used"])
+
             # logging mean values
-            self.logger.record(f"glaucoma/random/mean_episode_len", np.mean(self.random_len_ep))
-            self.logger.record(f"glaucoma/random/mean_max_glaucoma_len", np.mean(self.random_mean_max_glaucoma_len))
-            self.logger.record(f"glaucoma/random/mean_max_steps_with_hungry", np.mean(self.random_mean_max_steps_with_hungry))
+            self.logger.record(f"random/mean_episode_len", np.mean(self.random_len_ep))
+            self.logger.record(f"random/mean_max_glaucoma_len", np.mean(self.random_mean_max_glaucoma_len))
+            self.logger.record(f"random/mean_max_steps_with_hungry", np.mean(self.random_mean_max_steps_with_hungry))
+            self.logger.record(f"random/mean_medkits_used", np.mean(self.random_mean_medkits_used))
 
             self.random_len_ep = 0
 
@@ -182,15 +189,19 @@ class TrainAndLoggingCallback(BaseCallback):
                 self.eval_len[i].append(len_ep)
                 self.eval_max_glaucoma_len[i].append(info["max_glaucoma_len"])
                 self.eval_max_steps_with_hungry[i].append(info["max_steps_with_hungry"])
+                self.eval_medkits_used[i].append(info["medkits_used"])
                 # logging raw values
-                self.logger.record(f"glaucoma/{self.eval_name[i]}/episode_len", len_ep)
-                self.logger.record(f"glaucoma/{self.eval_name[i]}/max_glaucoma_len", info["max_glaucoma_len"])
-                self.logger.record(f"glaucoma/{self.eval_name[i]}/max_steps_with_hungry", info["max_steps_with_hungry"])
+                self.logger.record(f"{self.eval_name[i]}/episode_len", len_ep)
+                self.logger.record(f"{self.eval_name[i]}/max_glaucoma_len", info["max_glaucoma_len"])
+                self.logger.record(f"{self.eval_name[i]}/max_steps_with_hungry", info["max_steps_with_hungry"])
+                self.logger.record(f"{self.eval_name[i]}/medkits_used", info["medkits_used"])
                 # logging mean values
-                self.logger.record(f"glaucoma/{self.eval_name[i]}/mean_episode_len", np.mean(self.eval_len[i]))
-                self.logger.record(f"glaucoma/{self.eval_name[i]}/mean_max_glaucoma_len", np.mean(self.eval_max_glaucoma_len[i]))
-                self.logger.record(f"glaucoma/{self.eval_name[i]}/mean_max_steps_with_hungry", np.mean(self.eval_max_steps_with_hungry[i]))
+                self.logger.record(f"{self.eval_name[i]}/mean_episode_len", np.mean(self.eval_len[i]))
+                self.logger.record(f"{self.eval_name[i]}/mean_max_glaucoma_len", np.mean(self.eval_max_glaucoma_len[i]))
+                self.logger.record(f"{self.eval_name[i]}/mean_max_steps_with_hungry", np.mean(self.eval_max_steps_with_hungry[i]))
+                self.logger.record(f"{self.eval_name[i]}/mean_medkits_used", np.mean(self.eval_medkits_used[i]))
 
+            self.logger.dump(step=self.n_calls)
             os.remove(f"{aux_model_path}.zip")
 
 
@@ -264,6 +275,7 @@ def train(glaucoma_level:int, reward:str, strength:int):
     print(locals())
     envs = make_vec_env(make_env, n_envs=1, env_kwargs=locals())
     CHECKPOINT_DIR = f"./train/{reward}{strength}_{glaucoma_level}g"
+    LOG_DIR = f"./logs/{reward}{strength}_{glaucoma_level}g"
     callback = TrainAndLoggingCallback(check_freq=CHECKPOINT_FREQUENCY, save_path=CHECKPOINT_DIR, glaucoma_level=glaucoma_level)
     
     model = PPO("CnnPolicy", envs, tensorboard_log=LOG_DIR, learning_rate=0.0001, n_steps=4096, policy_kwargs=dict(normalize_images=False))

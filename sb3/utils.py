@@ -59,7 +59,7 @@ def check_reward(parser, args):
         
 def check_rnd_strength(parser, args):
     # checking if the arguments are given and correct
-    if args.reward is None:
+    if args.rnd_strength is None:
         parser.error("--rnd_strength must be passed in training")
 
 def check_glaucoma_level(parser, args):
