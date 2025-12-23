@@ -1,56 +1,12 @@
 import os
+import sys
 import json
 import shutil
 from pathlib import Path
-from InquirerPy import inquirer
 
-CHECKPOINT_FREQUENCY = 100000
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-def overwrite_experiment_on_train(train_dir:str, log_dir:str):
-    dir_path_train = Path(train_dir)
-    dir_path_log = Path(log_dir)
-
-    directory_train_exists = dir_path_train.exists() and dir_path_train.is_dir()
-    directory_log_exists = dir_path_log.exists() and dir_path_log.is_dir()
-
-    if directory_train_exists:
-        print("Overwriting last train...")
-        print("New training starting...")
-        shutil.rmtree(dir_path_train)
-        if directory_log_exists:
-            shutil.rmtree(dir_path_log)
-
-    os.makedirs(train_dir, exist_ok=True)
-    os.makedirs(log_dir, exist_ok=True)
-
-
-def check_experiment_on_train(args, train_dir:str, log_dir:str):
-
-    dir_path_train = Path(train_dir)
-    dir_path_log = Path(log_dir)
-
-    directory_train_exists = dir_path_train.exists() and dir_path_train.is_dir()
-    directory_log_exists = dir_path_log.exists() and dir_path_log.is_dir()
-
-    if directory_train_exists:
-        print(f"A experiment called '{args.experiment}' already exists.")
-        overwrite = inquirer.select(
-            message="Would you like to overwrite the last experiment with a new one?",
-            choices=["No", "Yes"],
-        ).execute()
-        print(overwrite)
-        if overwrite == "No":
-            print("Train aborted!")
-            exit(0)
-        else:
-            print("Overwriting last train...")
-            print("New training starting...")
-            shutil.rmtree(dir_path_train)
-            if directory_log_exists:
-                shutil.rmtree(dir_path_log)
-
-    os.makedirs(train_dir, exist_ok=True)
-    os.makedirs(log_dir, exist_ok=True)
+from env.env_setup import CHECKPOINT_FREQUENCY
 
 def check_reward(parser, args):
     # checking if the arguments are given and correct
@@ -74,6 +30,11 @@ def check_layout(parser, args):
     if args.layout is None:
         parser.error("--layout must be passed")
 
+def check_experiment(parser, args):
+    # checking if the arguments are given and correct
+    if args.experiment is None:
+        parser.error("--experiment must be passed")
+
 def check_experiment_on_play(parser, args, CHECKPOINT_DIR) -> str:
     # checking if the experiment exists
     dir_path_train = Path(CHECKPOINT_DIR)
@@ -94,7 +55,10 @@ def check_experiment_on_play(parser, args, CHECKPOINT_DIR) -> str:
         exit(0)
     return MODEL_NAME
 
-def save_experiment_info(CHECKPOINT_DIR, info_dict):
+def save_experiment_info(CHECKPOINT_DIR, aux_dict):
+    info_dict = aux_dict.copy()
+    info_dict.pop("render_mode")
+    info_dict.pop("eval_layout")
     with open(f"{CHECKPOINT_DIR}/config.json", "w") as f:
         json.dump(info_dict, f, indent=4)
 
