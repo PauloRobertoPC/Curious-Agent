@@ -20,10 +20,13 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from env.vizdoomenv import VizDoomGym
 from env.env_setup import EnvSetup, CHECKPOINT_FREQUENCY
+from wrappers.trajectory_visualization import TrajectoryVisualizationWrapper
 
 envs = {}
 from env.health_gathering import HealthGathering
 envs["hg"] = HealthGathering
+from env.health_gathering_supreme import HealthGatheringSupreme
+envs["hgs"] = HealthGatheringSupreme
 
 def train(es: EnvSetup):
     es.create_directory()
@@ -70,14 +73,19 @@ def evaluate(es: EnvSetup, model_name:str, eval_episodes:int):
 
     print(mean_reward)
 
+        
+def callback(obs_t, obs_tp1, action, rew, terminated, truncated, info):
+    print(info)
+
 def play_human(es: EnvSetup):
     env = VizDoomGym(es)
+    env = TrajectoryVisualizationWrapper(env, "./play_images")
     key_to_action = {
         "a": 0,
         "d": 1,
         "w": 2
     }
-    playing(env, keys_to_action=key_to_action, wait_on_player=True)
+    playing(env, keys_to_action=key_to_action, wait_on_player=True, callback=callback)
     env.close()
 
 # TODO:
@@ -101,7 +109,7 @@ def record(eval_layout):
     
 def experiments(env:str):
     exps = [
-        {"glaucoma_level": 0, "reward": "extrinsic", "rnd_strength": 0, "render_mode": None},
+        {"glaucoma_level": 150, "reward": "rnd", "rnd_strength": 0, "render_mode": None},
     ]
     for e in exps:
         es = envs[env]({**e})
