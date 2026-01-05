@@ -107,12 +107,12 @@ def record(eval_layout):
 
     env.close()
     
-def experiments(env:str):
+def experiments(env:str, save_trajectory:bool):
     exps = [
         {"glaucoma_level": 150, "reward": "rnd", "rnd_strength": 0, "render_mode": None},
     ]
     for e in exps:
-        es = envs[env]({**e})
+        es = envs[env]({**e}, save_trajectory)
         train(es)
 
 if __name__ == "__main__":
@@ -198,4 +198,4 @@ if __name__ == "__main__":
         )
         play_human(es)
     elif args.action == "experiment":
-        experiments(args.env)
+        experiments(args.env, args.save_trajectory)
