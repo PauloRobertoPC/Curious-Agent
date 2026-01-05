@@ -126,8 +126,12 @@ if __name__ == "__main__":
     parser.add_argument("--eval_episodes", type=int, default=10, help="total of episodes you want to evaluate the reward(used in evaluate)")
     parser.add_argument("--layout", type=int, help="layout to be played 0 - random, 1 - square, 2 - circle, 3 - sine curve, 4 - grid")
     parser.add_argument("--rnd_strength", type=int, help="multiplier for the intrinsic reward calculated by the rnd")
+    parser.add_argument("--save_trajectory", type=bool, default=False, help="save trajectory images")
+
 
     args = parser.parse_args()
+
+    print(args.save_trajectory)
 
     if args.action == "train":
         # checking if argument were passed
@@ -139,11 +143,13 @@ if __name__ == "__main__":
             st = args.rnd_strength
         # train itself
         es = envs[args.env]({
-            "glaucoma_level": args.glaucoma_level,
-            "reward": args.reward,
-            "rnd_strength": st,
-            "render_mode": None,
-        })
+                "glaucoma_level": args.glaucoma_level,
+                "reward": args.reward,
+                "rnd_strength": st,
+                "render_mode": None,
+            },
+            args.save_trajectory,
+        )
         train(es)
     elif args.action == "play":
         check_experiment(parser, args)
@@ -153,12 +159,14 @@ if __name__ == "__main__":
         config = read_experiment_info(checkpoint_dir)
         config["reward"] = "extrinsic"
         es = envs[args.env]({
-            "glaucoma_level": config["glaucoma_level"],
-            "reward": config["reward"],
-            "rnd_strength": config["rnd_strength"],
-            "render_mode": None,
-            "eval_layout": args.layout
-        })
+                "glaucoma_level": config["glaucoma_level"],
+                "reward": config["reward"],
+                "rnd_strength": config["rnd_strength"],
+                "render_mode": None,
+                "eval_layout": args.layout
+            },
+            args.save_trajectory,
+        )
         play(es, model_name)
     elif args.action == "evaluate":
         check_experiment(parser, args)
@@ -168,22 +176,26 @@ if __name__ == "__main__":
         config = read_experiment_info(checkpoint_dir)
         config["reward"] = "extrinsic"
         es = envs[args.env]({
-            "glaucoma_level": config["glaucoma_level"],
-            "reward": config["reward"],
-            "rnd_strength": config["rnd_strength"],
-            "render_mode": None,
-            "eval_layout": args.layout
-        })
+                "glaucoma_level": config["glaucoma_level"],
+                "reward": config["reward"],
+                "rnd_strength": config["rnd_strength"],
+                "render_mode": None,
+                "eval_layout": args.layout
+            },
+            args.save_trajectory,
+        )
         evaluate(es, model_name, args.eval_episodes)
     elif args.action == "debug":
         check_layout(parser, args)
         es = envs[args.env]({
-            "glaucoma_level": 0,
-            "reward": "extrinsic",
-            "rnd_strength": 0,
-            "render_mode": "rgb_array",
-            "eval_layout": args.layout
-        })
+                "glaucoma_level": 0,
+                "reward": "extrinsic",
+                "rnd_strength": 0,
+                "render_mode": "rgb_array",
+                "eval_layout": args.layout
+            },
+            args.save_trajectory,
+        )
         play_human(es)
     elif args.action == "experiment":
         experiments(args.env)

@@ -107,7 +107,7 @@ class HealthGatheringCallback(BaseCallback):
 
 
 class HealthGathering(EnvSetup):
-    def __init__(self, info:Dict[str, Union[str, int]], save_trajectories_images:bool = True):
+    def __init__(self, info:Dict[str, Union[str, int]], save_trajectories_images:bool):
         if "reward" not in info or  "glaucoma_level" not in info or "rnd_strength" not in info or "render_mode" not in info:
             raise ValueError("It should contains 'reward', 'glaucoma_level', 'rnd_strength' and 'render_mode'")
         self.reward = info["reward"]

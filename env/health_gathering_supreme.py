@@ -69,7 +69,7 @@ class HealthGatheringSupremeCallback(BaseCallback):
 
 
 class HealthGatheringSupreme(EnvSetup):
-    def __init__(self, info:Dict[str, Union[str, int]], save_trajectories_images:bool = True):
+    def __init__(self, info:Dict[str, Union[str, int]], save_trajectories_images:bool):
         if "reward" not in info or  "glaucoma_level" not in info or "rnd_strength" not in info or "render_mode" not in info:
             raise ValueError("It should contains 'reward', 'glaucoma_level', 'rnd_strength' and 'render_mode'")
         self.reward = info["reward"]
@@ -101,6 +101,7 @@ class HealthGatheringSupreme(EnvSetup):
         print(f"ENV CONFIG -> {self.info}")
         env = VizDoomGym(self)
         if self.save_trajectories_images:
+            print("SAVING IMAGE")
             env = TrajectoryVisualizationWrapper(env, f"{self.get_log_dir()}/{self.eval_layout_to_name[self.info["eval_layout"]]}_trajectories")
         env = ImageTransformationWrapper(env, (161, 161))
         env = GlaucomaWrapper(env, 0, self.info["glaucoma_level"], -100)
