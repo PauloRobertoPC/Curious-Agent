@@ -53,7 +53,7 @@ class HealthGatheringCallback(BaseCallback):
             
 
     def _on_step(self) -> bool:
-        self.random_len_ep += 1
+        self.random_len_ep += 4
         if "max_glaucoma_len" in self.locals["infos"][0]:
 
             # adding info

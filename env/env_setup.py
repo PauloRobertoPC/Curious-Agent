@@ -87,4 +87,4 @@ def play_episode(env, model):
         total_reward += reward
         ep_len += 1
         finished = done or truncated
-    return ep_len, info
+    return 4*ep_len, info
