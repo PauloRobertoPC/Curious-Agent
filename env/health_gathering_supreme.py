@@ -39,6 +39,7 @@ class HealthGatheringSupremeCallback(BaseCallback):
     def _on_step(self) -> bool:
         self.random_len_ep += 4
         if "max_glaucoma_len" in self.locals["infos"][0]:
+            print(self.random_len_ep)
 
             # adding info
             self.random_mean_len_ep.append(self.random_len_ep)
@@ -68,8 +69,8 @@ class HealthGatheringSupremeCallback(BaseCallback):
         pass
 
 
-class HealthGatheringSupreme(EnvSetup):
-    def __init__(self, info:Dict[str, Union[str, int]], save_trajectories_images:bool):
+class HealthGatheringSupremeBase(EnvSetup):
+    def __init__(self, info:Dict[str, Union[str, int]], save_trajectories_images:bool, cfg_file:str):
         if "reward" not in info or  "glaucoma_level" not in info or "rnd_strength" not in info or "render_mode" not in info:
             raise ValueError("It should contains 'reward', 'glaucoma_level', 'rnd_strength' and 'render_mode'")
         self.reward = info["reward"]
@@ -79,7 +80,7 @@ class HealthGatheringSupreme(EnvSetup):
         self.save_trajectories_images = save_trajectories_images
         if "eval_layout" not in self.info:
             self.info["eval_layout"] = 0
-        super().__init__("health_gathering_supreme.cfg", 3, (3, 240, 320))
+        super().__init__(cfg_file, 3, (3, 240, 320))
      
     def set_train_and_logging_callback(self):
         self.train_and_logging_callback = HealthGatheringSupremeCallback(CHECKPOINT_FREQUENCY, self.get_log_dir(), self.glaucoma_level, self)
@@ -120,3 +121,11 @@ class HealthGatheringSupreme(EnvSetup):
 
     def _get_log_dir(self) -> str:
         return f"./logs/hgs_{self.reward}{self.rnd_strength}_{self.glaucoma_level}g"
+
+class HealthGatheringSupreme(HealthGatheringSupremeBase):
+    def __init__(self, info, save_trajectories_images):
+        super().__init__(info, save_trajectories_images, "health_gathering_supreme.cfg")
+
+class HealthGatheringSupremeNoLife(HealthGatheringSupremeBase):
+    def __init__(self, info, save_trajectories_images):
+        super().__init__(info, save_trajectories_images, "health_gathering_supreme_no_life.cfg")

@@ -23,10 +23,12 @@ from env.env_setup import EnvSetup, CHECKPOINT_FREQUENCY
 from wrappers.trajectory_visualization import TrajectoryVisualizationWrapper
 
 envs = {}
-from env.health_gathering import HealthGathering
+from env.health_gathering import HealthGathering, HealthGatheringNoLife
 envs["hg"] = HealthGathering
-from env.health_gathering_supreme import HealthGatheringSupreme
+envs["hgnl"] = HealthGatheringNoLife
+from env.health_gathering_supreme import HealthGatheringSupreme, HealthGatheringSupremeNoLife
 envs["hgs"] = HealthGatheringSupreme
+envs["hgsnl"] = HealthGatheringSupremeNoLife
 
 def train(es: EnvSetup):
     es.create_directory()
@@ -118,7 +120,7 @@ def experiments(env:str, save_trajectory:bool):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Reinforcement Learning with Stables Baseline 3")
     parser.add_argument("--action", required=True, type=str, choices=["train", "play", "evaluate", "debug", "experiment"], help="'train' the agent, watch it 'play','evaluate' its rewards, 'debug' the unwraped enviroment or perform 'experiment' as in experiments function")
-    parser.add_argument("--env", required=True, type=str, choices=["hg", "hgs"], help="enviroment to be use, hg=health_gathering, hgs=health_gathering_supreme")
+    parser.add_argument("--env", required=True, type=str, choices=["hg", "hgs", "hgnl", "hgsnl"], help="enviroment to be use, hg=health_gathering, hgs=health_gathering_supreme, hgnl=health_gathering_no_life, hgsnl=health_gathering_supreme_no_life")
     parser.add_argument("--experiment", type=str, help="experiment name, all the files regarding this experiment will be saved in train/<experiment>")
     parser.add_argument("--reward", type=str, choices=["rnd", "extrinsic"], help="reward given to the agent(required in train)")
     parser.add_argument("--glaucoma_level", type=int, help="glaucoma growth intensity(required in train)")

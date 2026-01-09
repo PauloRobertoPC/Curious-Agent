@@ -106,8 +106,8 @@ class HealthGatheringCallback(BaseCallback):
         pass
 
 
-class HealthGathering(EnvSetup):
-    def __init__(self, info:Dict[str, Union[str, int]], save_trajectories_images:bool):
+class HealthGatheringBase(EnvSetup):
+    def __init__(self, info:Dict[str, Union[str, int]], save_trajectories_images:bool, cfg_file:str):
         if "reward" not in info or  "glaucoma_level" not in info or "rnd_strength" not in info or "render_mode" not in info:
             raise ValueError("It should contains 'reward', 'glaucoma_level', 'rnd_strength' and 'render_mode'")
         self.reward = info["reward"]
@@ -118,7 +118,7 @@ class HealthGathering(EnvSetup):
         if "eval_layout" not in self.info:
             self.info["eval_layout"] = 0
         self.eval_layout_to_name = ["random", "square", "circle", "sin", "grid"]
-        super().__init__("health_gathering.cfg", 3, (3, 240, 320))
+        super().__init__(cfg_file, 3, (3, 240, 320))
      
     def set_train_and_logging_callback(self):
         self.train_and_logging_callback = HealthGatheringCallback(CHECKPOINT_FREQUENCY, self.get_train_dir(), self.glaucoma_level, self)
@@ -156,3 +156,11 @@ class HealthGathering(EnvSetup):
 
     def _get_log_dir(self) -> str:
         return f"./logs/hg_{self.reward}{self.rnd_strength}_{self.glaucoma_level}g"
+
+class HealthGathering(HealthGatheringBase):
+    def __init__(self, info, save_trajectories_images):
+        super().__init__(info, save_trajectories_images, "health_gathering.cfg")
+
+class HealthGatheringNoLife(HealthGatheringBase):
+    def __init__(self, info, save_trajectories_images):
+        super().__init__(info, save_trajectories_images, "health_gathering_no_life.cfg")

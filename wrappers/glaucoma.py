@@ -32,12 +32,14 @@ class GlaucomaWrapper(gym.Wrapper):
         self.max_erased_pixel = 0
 
         self.last_medkits = 0
+        self.last_poisons = 0
 
     def reset(self, seed=None, options=None):
         self.blind = False
         self.steps_with_hungry = 0
         self.erased_pixel = 0
         self.last_medkits = 0
+        self.last_poisons = 0
         self.max_erased_pixel = 0
         self.max_steps_with_hungry  = 0
         return self.env.reset()
@@ -58,6 +60,15 @@ class GlaucomaWrapper(gym.Wrapper):
         if info["medkits_used"] > self.last_medkits:
             medkit_used = True
         self.last_medkits = info["medkits_used"]
+
+        poison_used = False
+        if "poisons_used" in info:
+            if info["poisons_used"] > self.last_poisons:
+                poison_used = True
+            self.last_poisons = info["poisons_used"]
+
+        if poison_used:
+            self.erased_pixel += self.steps_glaucoma_level
         
         if medkit_used:
             self.steps_with_hungry = -1
