@@ -129,3 +129,9 @@ class HealthGatheringSupreme(HealthGatheringSupremeBase):
 class HealthGatheringSupremeNoLife(HealthGatheringSupremeBase):
     def __init__(self, info, save_trajectories_images):
         super().__init__(info, save_trajectories_images, "health_gathering_supreme_no_life.cfg")
+
+    def _get_train_dir(self) -> str:
+        return f"./train/hgsnl_{self.reward}{self.rnd_strength}_{self.glaucoma_level}g"
+
+    def _get_log_dir(self) -> str:
+        return f"./logs/hgsnl_{self.reward}{self.rnd_strength}_{self.glaucoma_level}g"
