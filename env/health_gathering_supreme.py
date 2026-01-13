@@ -39,7 +39,6 @@ class HealthGatheringSupremeCallback(BaseCallback):
     def _on_step(self) -> bool:
         self.random_len_ep += 4
         if "max_glaucoma_len" in self.locals["infos"][0]:
-            print(self.random_len_ep)
 
             # adding info
             self.random_mean_len_ep.append(self.random_len_ep)
@@ -102,7 +101,6 @@ class HealthGatheringSupremeBase(EnvSetup):
         print(f"ENV CONFIG -> {self.info}")
         env = VizDoomGym(self)
         if self.save_trajectories_images:
-            print("SAVING IMAGE")
             env = TrajectoryVisualizationWrapper(env, f"{self.get_log_dir()}/{self.eval_layout_to_name[self.info["eval_layout"]]}_trajectories")
         env = ImageTransformationWrapper(env, (161, 161))
         env = GlaucomaWrapper(env, 0, self.info["glaucoma_level"], -100)
