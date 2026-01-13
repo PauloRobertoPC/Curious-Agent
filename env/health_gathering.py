@@ -74,6 +74,12 @@ class HealthGatheringCallback(BaseCallback):
 
             aux_model_path = os.path.join(self.save_path, f"aux")
             self.model.save(aux_model_path)
+            del self.locals["infos"][0]["sector_lines"]
+            del self.locals["infos"][0]["agent_trajectory"]
+            del self.locals["infos"][0]["medikits"]
+            del self.locals["infos"][0]["poisons"]
+            print("RANDOM: ")
+            print(self.locals["infos"][0])
             
             model = PPO.load(aux_model_path)
             for i, env in enumerate(self.eval_envs):
@@ -91,6 +97,12 @@ class HealthGatheringCallback(BaseCallback):
                 self.logger.record(f"{self.eval_name[i]}/mean_episode_len", np.mean(self.eval_len[i]))
                 self.logger.record(f"{self.eval_name[i]}/mean_max_steps_with_hungry", np.mean(self.eval_max_steps_with_hungry[i]))
                 self.logger.record(f"{self.eval_name[i]}/mean_medkits_used", np.mean(self.eval_medkits_used[i]))
+                del info["sector_lines"]
+                del info["agent_trajectory"]
+                del info["medikits"]
+                del info["poisons"]
+                print(self.eval_name[i])
+                print(info)
 
             self.logger.dump(step=self.n_calls)
             os.remove(f"{aux_model_path}.zip")

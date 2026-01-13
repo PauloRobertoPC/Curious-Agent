@@ -9,7 +9,7 @@ import torch
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from env.env_setup import EnvSetup, play_episode, CHECKPOINT_FREQUENCY
+from env.env_setup import EnvSetup, CHECKPOINT_FREQUENCY
 from env.vizdoomenv import VizDoomGym
 from wrappers.glaucoma import GlaucomaWrapper
 from wrappers.image_transformation import ImageTransformationWrapper
