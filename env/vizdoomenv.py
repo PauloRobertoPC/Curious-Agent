@@ -28,7 +28,8 @@ class VizDoomGym(Env):
         self.poisons = set()
 
         # choosing layout
-        self.game.add_game_args(f"+set eval_layout {env_setup.info["eval_layout"]} +set tics_to_spawn_after_eat 120")
+        print(self.env_setup.info)
+        self.game.add_game_args(f"+set eval_layout {env_setup.info['eval_layout']} +set tics_to_spawn_after_eat 120")
         self.game.load_config(env_setup.scenario)
 
         render_mode = env_setup.info["render_mode"]

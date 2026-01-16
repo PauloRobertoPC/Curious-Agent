@@ -3,20 +3,18 @@ name = "vzd"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 dependencies = [
-    "colorlog>=6.9.0",
-    "grad-cam>=1.5.5",
-    "gymnasium",
-    "huggingface-hub>=0.33.2",
-    "inquirerpy>=0.3.4",
-    "moviepy>=2.1.2",
-    "numpy>=1.18",
+    "envpool>=0.8.4",
+    "gymnasium[accept-rom-license, other]==0.27.1",
+    "torch",
+    "torchvision",
+    "termcolor",
+    "scipy>= 1.7.0",
+    "pynvml==11.5.0",
+    "matplotlib==3.6.0",
+    "seaborn==0.12.2",
+    "huggingface_hub==0.14.1",
     "opencv-python>=4.11.0.86",
-    "signal-slot-mp>=1.0.5",
-    "stable-baselines3[extra]>=2.6.0",
-    "tensorboard>=2.19.0",
-    "tensorboardx>=2.6.4",
-    "torch>=2.6.0",
-    "vizdoom>=1.2.4",
+    "numpy<2",
 ]

@@ -6,8 +6,6 @@ from abc import ABC, abstractmethod
 
 import torch
 
-from stable_baselines3.common.callbacks import BaseCallback
-
 CHECKPOINT_FREQUENCY = 100000
 
 class EnvSetup(ABC):
@@ -17,10 +15,6 @@ class EnvSetup(ABC):
         self.tot_actions = tot_actions
         self.obs_space_shape: Sequence[int] = obs_space_shape
         self.new_number = -1
-
-    @abstractmethod
-    def set_train_and_logging_callback(self):
-        raise NotImplementedError()
 
     @abstractmethod
     def get_info(self, state):
