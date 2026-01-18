@@ -165,10 +165,12 @@ class OnPolicyAgent(BaseAgent):
                     }, sync=True
                 )
                 # just plus the intrinsic rewards to the extrinsic rewards
-                self.storage.rewards += intrinsic_rewards.to(self.device)
+                # print(intrinsic_rewards)
+                # self.storage.rewards += intrinsic_rewards.to(self.device)
+                # self.storage.rewards += 1
                 # TODO: which integration is better?
-                # self.storage.advantages += intrinsic_rewards.to(self.device)
-                # self.storage.returns += intrinsic_rewards.to(self.device)
+                self.storage.advantages += intrinsic_rewards.to(self.device)
+                self.storage.returns += intrinsic_rewards.to(self.device)
 
             # update the agent
             self.update()

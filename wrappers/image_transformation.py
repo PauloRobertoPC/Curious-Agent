@@ -34,3 +34,5 @@ class ImageTransformationWrapper(gym.ObservationWrapper):
         # gray = np.repeat(gray, 3, axis=1)
         return gray
 
+def image_wrapper(resize_shape):
+    return lambda env: ImageTransformationWrapper(env, resize_shape)

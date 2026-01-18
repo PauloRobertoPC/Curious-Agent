@@ -140,3 +140,6 @@ class GlaucomaWrapper(gym.Wrapper):
             count += (count_of_count==0)
             direction = (direction+1)%4
         return pixels
+
+def glaucoma_wrapper(start, level):
+    return lambda env: GlaucomaWrapper(env, start, level)

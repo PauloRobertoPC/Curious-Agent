@@ -1,12 +1,12 @@
 import numpy as np
+from typing import Callable, List
 from gymnasium.wrappers import RecordEpisodeStatistics
 from gymnasium.wrappers import NormalizeReward, TransformReward
 
 from rllte.env.utils import Gymnasium2Torch
 from rllte.env.utils import EnvPoolAsync2Gymnasium, EnvPoolSync2Gymnasium, Gymnasium2Torch
 
-from wrappers.glaucoma import GlaucomaWrapper
-from wrappers.image_transformation import ImageTransformationWrapper
+WrapperFactory = Callable[[object], object]
 
 def make_envpool_vizdoom_env(
     env_id: str = "MyWayHome-v1", num_envs: int = 8, device: str = "cpu", seed: int = 1, asynchronous: bool = True
@@ -31,7 +31,8 @@ def make_envpool_vizdoom_env(
     return Gymnasium2Torch(envs, device, envpool=True)
 
 def make_envpool_vizdoom_env_custom(
-    cfg_path:str, wad_path:str, num_envs: int, device: str, seed: int, asynchronous: bool
+    cfg_path:str, wad_path:str, num_envs: int, device: str, seed: int, asynchronous: bool,
+    wrappers: List[WrapperFactory]
 ) -> Gymnasium2Torch:
     env_kwargs = dict(
         task_id="VizdoomCustom-v1",
@@ -52,19 +53,21 @@ def make_envpool_vizdoom_env_custom(
         envs = EnvPoolSync2Gymnasium(env_kwargs)
 
     # Custom Wrappers
-    envs = ImageTransformationWrapper(envs, (84, 84))
-    envs = GlaucomaWrapper(envs, 0, 5)
+    if wrappers:
+        for wrapper in wrappers:
+            envs = wrapper(envs)
 
     envs = RecordEpisodeStatistics(envs)
     return Gymnasium2Torch(envs, device, envpool=True)
 
 
-def health_gathering(num_envs: int = 8, device: str = "cpu", seed: int = 1, asynchronous: bool = True):
+def health_gathering(num_envs: int = 8, device: str = "cpu", seed: int = 1, asynchronous: bool = True, wrappers: List[WrapperFactory] = None):
     return make_envpool_vizdoom_env_custom(
         "scenarios/health_gathering.cfg",
         "scenarios/health_gathering.wad",
         num_envs=num_envs,
         device=device,
         seed=seed,
-        asynchronous=asynchronous
+        asynchronous=asynchronous,
+        wrappers=wrappers
     )

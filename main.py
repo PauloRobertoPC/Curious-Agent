@@ -17,7 +17,6 @@ env_kwargs = dict(
 )
 
 envs = EnvPoolSync2Gymnasium(env_kwargs)
-print(type(envs))
 # envs = ImageTransformationWrapper(envs, (84, 84))
 # envs = GlaucomaWrapper(envs, 0, 5, -100)
 # envs = Gymnasium2Torch(envs, device="cuda", envpool=True)
