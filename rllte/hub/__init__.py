@@ -24,6 +24,6 @@
 
 
 from .atari import Atari as Atari
-from .dmc import DMControl as DMControl
-from .minigrid import MiniGrid as MiniGrid
-from .procgen import Procgen as Procgen
+# from .dmc import DMControl as DMControl
+# from .minigrid import MiniGrid as MiniGrid
+# from .procgen import Procgen as Procgen
