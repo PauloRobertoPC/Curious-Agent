@@ -32,7 +32,7 @@ def make_envpool_vizdoom_env(
 
 def make_envpool_vizdoom_env_custom(
     cfg_path:str, wad_path:str, num_envs: int, device: str, seed: int, asynchronous: bool,
-    wrappers: List[WrapperFactory]
+    wrappers: List[WrapperFactory], eval_layout:int
 ) -> Gymnasium2Torch:
     env_kwargs = dict(
         task_id="VizdoomCustom-v1",
@@ -44,7 +44,8 @@ def make_envpool_vizdoom_env_custom(
         seed=seed,
         episodic_life=True,
         use_combined_action=True,
-        stack_num=1
+        stack_num=1,
+        game_args=f"+set eval_layout {eval_layout} +set tics_to_spawn_after_eat 120",
     )
 
     if asynchronous:
@@ -60,8 +61,7 @@ def make_envpool_vizdoom_env_custom(
     envs = RecordEpisodeStatistics(envs)
     return Gymnasium2Torch(envs, device, envpool=True)
 
-
-def health_gathering(num_envs: int = 8, device: str = "cpu", seed: int = 1, asynchronous: bool = True, wrappers: List[WrapperFactory] = None):
+def health_gathering(num_envs: int = 8, device: str = "cpu", seed: int = 1, asynchronous: bool = True, wrappers: List[WrapperFactory] = None, eval_layout:int = 0):
     return make_envpool_vizdoom_env_custom(
         "scenarios/health_gathering.cfg",
         "scenarios/health_gathering.wad",
@@ -69,5 +69,6 @@ def health_gathering(num_envs: int = 8, device: str = "cpu", seed: int = 1, asyn
         device=device,
         seed=seed,
         asynchronous=asynchronous,
-        wrappers=wrappers
+        wrappers=wrappers,
+        eval_layout=eval_layout
     )

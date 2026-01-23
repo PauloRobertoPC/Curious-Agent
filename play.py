@@ -79,9 +79,10 @@ def show_image(obs, cam=None, targets=None):
     cv2.imshow("game", image_bgr)
     cv2.waitKey(1)
 
-device = "cuda"
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
-agent = th.load("logs/health_gathering_100g_rnd/2026-01-17-03-01-50/model/agent_1999872.pth", map_location=th.device(device), weights_only=False)
+agent_model = "logs/health_gathering_100g_rnd/2026-01-17-03-01-50/model/agent_1999872.pth"
+agent = th.load(agent_model, map_location=th.device(device), weights_only=False)
 agent.eval()
 cam = instantiate_cam(agent)
 
@@ -111,6 +112,7 @@ while not ok:
 
     obs, reward, terminated, truncated, info = env.step(action)
     ok = terminated or truncated
+    print(info)
 
     # show_image(obs)
     show_image(obs, cam, [ClassifierOutputTarget(action)])

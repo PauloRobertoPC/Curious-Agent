@@ -5,7 +5,6 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "envpool>=0.8.4",
     "gymnasium[accept-rom-license, other]==0.27.1",
     "torch",
     "torchvision",
@@ -22,4 +21,6 @@ dependencies = [
     "nbformat>=5.10.4",
     "grad-cam>=1.5.5",
     "arch>=8.0.0",
+    "gym>=0.26.2",
+    "envpool>=0.8.4",
 ]

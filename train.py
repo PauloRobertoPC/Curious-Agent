@@ -1,5 +1,6 @@
 from typing import List, Callable
 from dataclasses import dataclass
+from rllte.env.utils import Gymnasium2Torch
 
 import torch
 
@@ -22,27 +23,25 @@ def transform_reward_wrapper(f):
 
 @dataclass
 class experiment:
+    env: Gymnasium2Torch
+    eval_env: Gymnasium2Torch
     device: str
-    wrappers: List[WrapperFactory]
     tag: str
     irs: IRSFactory | None
 
 def train(e:experiment):
-    # creating envs
-    env = health_gathering(num_envs=8, device=e.device, asynchronous=False, seed=1, wrappers=e.wrappers)
-    eval_env = health_gathering(num_envs=8, device=e.device, asynchronous=False, seed=9, wrappers=e.wrappers)
     # create agent
-    agent = PPO(env=env, 
-                eval_env=eval_env, 
-                device=device,
+    agent = PPO(env=e.env, 
+                eval_env=e.eval_env, 
+                device=e.device,
                 tag=e.tag,
                 )
     # create intrinsic reward
     if e.irs != None:
-        irs = e.irs(env)
+        irs = e.irs(e.env)
         agent.set(reward=irs)
     # start training
-    agent.train(num_train_steps=8_000_000, save_interval=1)
+    agent.train(num_train_steps=5000, save_interval=1)
 
 if __name__ == "__main__":
     # which device to use while training
@@ -54,8 +53,12 @@ if __name__ == "__main__":
         transform_reward_wrapper(lambda r: 0)
     ]
 
+    env = health_gathering(num_envs=8, device=device, asynchronous=False, seed=1, wrappers=wrappers)
+    eval_env = health_gathering(num_envs=8, device=device, asynchronous=False, seed=9, wrappers=wrappers)
+
     experiments: List[experiment] = []
-    experiments.append(experiment(tag="100g_rnd", irs=lambda env: RND(env, lr=1e-5, device=device), wrappers=wrappers, device=device))
+    experiments.append(experiment(tag="100g_rnd_0", irs=lambda env: RND(env, lr=1e-5, device=device), env=env, eval_env=eval_env, device=device))
+    experiments.append(experiment(tag="100g_rnd_1", irs=lambda env: RND(env, lr=1e-5, device=device), env=env, eval_env=eval_env, device=device))
         
     for e in experiments:
         train(e)
