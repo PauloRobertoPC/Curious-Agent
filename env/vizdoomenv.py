@@ -1,8 +1,6 @@
-from typing import Dict, Union
-import gymnasium as gym
 from vizdoom import *
-from gymnasium.spaces import Discrete, Box, Sequence
-from gymnasium import Env, make
+from gymnasium.spaces import Discrete, Box
+from gymnasium import Env
 import numpy as np
 
 from env.env_setup import EnvSetup
@@ -42,6 +40,16 @@ class VizDoomGym(Env):
 
         # set of actions we can take in the enviroment
         self.actions = np.identity(env_setup.tot_actions, dtype=np.uint8)
+        # Buttons order must match ViZDoom config
+        # [TURN_LEFT, TURN_RIGHT, MOVE_FORWARD]
+        self.actions = np.array([
+            [0, 0, 0],  # 0: idle
+            [1, 0, 0],  # 1: right
+            [0, 1, 0],  # 2: left
+            [0, 0, 1],  # 3: forward
+            [1, 0, 1],  # 4: forward right
+            [0, 1, 1],  # 5: forward left
+        ], dtype=np.uint8)
 
         # spaces
         self.observation_space = Box(low=0, high=255, shape=env_setup.obs_space_shape, dtype=np.uint8)

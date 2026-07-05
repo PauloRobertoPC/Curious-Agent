@@ -42,7 +42,7 @@ class GlaucomaWrapper(gym.Wrapper):
         self.last_poisons = 0
         self.max_erased_pixel = 0
         self.max_steps_with_hungry  = 0
-        return self.env.reset()
+        return self.env.reset(seed=seed, options=options)
 
     def step(self, action):
         observation, reward, terminated, truncated, info = self.env.step(action)

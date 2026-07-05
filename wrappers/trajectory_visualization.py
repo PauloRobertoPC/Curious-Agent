@@ -93,19 +93,20 @@ class TrajectoryVisualizationWrapper(gym.Wrapper):
 
         self.image_directory = image_directory
 
-        self.images_count = 0
+        self.image_name = 0
 
         os.makedirs(self.image_directory, exist_ok=True)
 
     def reset(self, seed=None, options=None):
-        return self.env.reset()
+        if options is not None:
+            self.image_name = options.get("image_name", None)
+        return self.env.reset(seed=seed, options=options)
 
     def step(self, action):
         observation, reward, terminated, truncated, info = self.env.step(action)
         
         if terminated or truncated:
-            generate_trajectory_map(info["sector_lines"], info["agent_trajectory"], info["medikits"], info["poisons"], f"{self.image_directory}/{self.images_count:06d}")
-            self.images_count += 1
+            generate_trajectory_map(info["sector_lines"], info["agent_trajectory"], info["medikits"], info["poisons"], f"{self.image_directory}/{self.image_name:010d}")
             
         return observation, reward, terminated, truncated, info
     

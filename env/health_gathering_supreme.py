@@ -2,9 +2,7 @@ from collections import deque
 import os
 import sys
 import numpy as np
-from typing import Dict, Sequence, Union
-from stable_baselines3 import PPO
-from stable_baselines3.common.callbacks import BaseCallback
+from typing import Dict, Union
 import torch
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -17,56 +15,6 @@ from wrappers.render_wrapper import RenderWrapper
 from wrappers.rnd_wrapper import RNDWrapper
 from gymnasium.wrappers import RecordVideo
 from wrappers.trajectory_visualization import TrajectoryVisualizationWrapper
-
-class HealthGatheringSupremeCallback(BaseCallback):
-
-    def __init__(self, check_freq:int, save_path:str, glaucoma_level:int, env_setup: EnvSetup, verbose:int = 0):
-        super(HealthGatheringSupremeCallback, self).__init__(verbose)
-        self.check_freq = check_freq
-        self.save_path = save_path
-        self.buffer = None
-        self.env_setup = env_setup
-
-        self.random_len_ep = 0
-        self.random_mean_len_ep = deque(maxlen=50)
-        self.random_mean_max_steps_with_hungry = deque(maxlen=50)
-        self.random_mean_medkits_used = deque(maxlen=50)
-
-    def _init_callback(self):
-        self.buffer = self.model.rollout_buffer
-            
-
-    def _on_step(self) -> bool:
-        self.random_len_ep += 4
-        if "max_glaucoma_len" in self.locals["infos"][0]:
-
-            # adding info
-            self.random_mean_len_ep.append(self.random_len_ep)
-            self.random_mean_max_steps_with_hungry.append(self.locals["infos"][0]["max_steps_with_hungry"])
-            self.random_mean_medkits_used.append(self.locals["infos"][0]["medkits_used"])
-            # logging raw values
-            self.logger.record(f"random/episode_len", self.random_len_ep)
-            self.logger.record(f"random/max_steps_with_hungry", self.locals["infos"][0]["max_steps_with_hungry"])
-            self.logger.record(f"random/medkits_used", self.locals["infos"][0]["medkits_used"])
-
-            # logging mean values
-            self.logger.record(f"random/mean_episode_len", np.mean(self.random_len_ep))
-            self.logger.record(f"random/mean_max_steps_with_hungry", np.mean(self.random_mean_max_steps_with_hungry))
-            self.logger.record(f"random/mean_medkits_used", np.mean(self.random_mean_medkits_used))
-
-            self.random_len_ep = 0
-            self.logger.dump(step=self.n_calls)
-
-
-        if self.n_calls%self.check_freq == 0:
-            model_path = os.path.join(self.save_path, f"best_model_{self.n_calls}")
-            self.model.save(model_path)
-
-        return True
-    
-    def _on_rollout_end(self) -> None:
-        pass
-
 
 class HealthGatheringSupremeBase(EnvSetup):
     def __init__(self, info:Dict[str, Union[str, int]], save_trajectories_images:bool, cfg_file:str):

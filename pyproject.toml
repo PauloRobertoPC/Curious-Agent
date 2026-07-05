@@ -5,16 +5,13 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "colorlog>=6.9.0",
-    "grad-cam>=1.5.5",
     "gymnasium",
-    "huggingface-hub>=0.33.2",
-    "inquirerpy>=0.3.4",
-    "moviepy>=2.1.2",
+    "matplotlib==3.6.0",
+    "nbformat>=5.10.4",
     "numpy>=1.18",
     "opencv-python>=4.11.0.86",
-    "signal-slot-mp>=1.0.5",
-    "stable-baselines3[extra]>=2.6.0",
+    "plotly>=6.5.2",
+    "rllte-core>=1.0.1",
     "tensorboard>=2.19.0",
     "tensorboardx>=2.6.4",
     "torch>=2.6.0",
