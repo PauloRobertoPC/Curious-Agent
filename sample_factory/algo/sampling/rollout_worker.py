@@ -8,7 +8,6 @@ import psutil
 import torch
 from signal_slot.signal_slot import signal
 
-from sample_factory.custom.reward_processer import RewardProcesser
 from sample_factory.algo.sampling.batched_sampling import BatchedVectorEnvRunner
 from sample_factory.algo.sampling.non_batched_sampling import NonBatchedVectorEnvRunner
 from sample_factory.algo.sampling.sampling_utils import VectorEnvRunner, rollout_worker_device
@@ -62,7 +61,12 @@ def init_rollout_worker_process(sf_context: SampleFactoryContext, worker: Rollou
         set_process_cpu_affinity(worker.worker_idx, cfg.num_workers)
 
     if cfg.num_workers > 1:
-        psutil.Process().nice(min(cfg.default_niceness + 10, 20))
+        # renicing can fail (AccessDenied) on restricted nodes (SLURM cgroups /
+        # shared local nodes); it is best-effort and must never kill the worker.
+        try:
+            psutil.Process().nice(min(cfg.default_niceness + 10, 20))
+        except (psutil.AccessDenied, PermissionError) as e:
+            log.warning("Unable to set rollout worker niceness (continuing): %s", e)
         torch.set_num_threads(1)
 
     if cfg.actor_worker_gpus:
@@ -79,7 +83,7 @@ def init_rollout_worker_process(sf_context: SampleFactoryContext, worker: Rollou
 
 class RolloutWorker(HeartbeatStoppableEventLoopObject, Configurable):
     def __init__(
-        self, event_loop, worker_idx: int, buffer_mgr, inference_queues: Dict[PolicyID, MpQueue], cfg, env_info: EnvInfo,
+        self, event_loop, worker_idx: int, buffer_mgr, inference_queues: Dict[PolicyID, MpQueue], cfg, env_info: EnvInfo
     ):
         Configurable.__init__(self, cfg)
         unique_name = f"{RolloutWorker.__name__}_w{worker_idx}"
@@ -238,7 +242,6 @@ class RolloutWorker(HeartbeatStoppableEventLoopObject, Configurable):
         """
         with inference_context(self.cfg.serial_mode):
             runner = self.env_runners[split_idx]
-            # print(f"ROLLOUT WORKER {global_reward_processer().train_times}")
             complete_rollouts, episodic_stats = runner.advance_rollouts(policy_id, self.timing)
 
             with self.timing.add_time("complete_rollouts"):

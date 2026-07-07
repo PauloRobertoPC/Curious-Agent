@@ -17,6 +17,67 @@ from sample_factory.utils.utils import log
 _NORM_EPS = 1e-5
 _DEFAULT_CLIP = 5.0
 
+class RunningMeanStd(nn.Module):
+    """
+    Recebe um tensor e retorna um novo tensor normalizado,
+    preservando o original. Ideal para quando os dados de entrada são usados por múltiplos
+    componentes, como no caso do RNDModule que não deve corromper o batch principal.
+    """
+    def __init__(self, input_shape, epsilon=_NORM_EPS, clip=_DEFAULT_CLIP):
+        super().__init__()
+        self.input_shape: Final = input_shape
+        self.eps: Final[float] = epsilon
+        self.clip: Final[float] = clip
+
+        self.register_buffer("running_mean", torch.zeros(input_shape, dtype=torch.float64))
+        self.register_buffer("running_var", torch.ones(input_shape, dtype=torch.float64))
+        self.register_buffer("count", torch.ones([1], dtype=torch.float64))
+
+    @staticmethod
+    @torch.jit.script
+    def _update_mean_var_count_from_moments(
+        mean: Tensor, var: Tensor, count: Tensor, batch_mean: Tensor, batch_var: Tensor, batch_count: int
+    ):
+        delta = batch_mean - mean
+        tot_count = count + batch_count
+        new_mean = mean + delta * batch_count / tot_count
+        m_a = var * count
+        m_b = batch_var * batch_count
+        M2 = m_a + m_b + (delta**2) * count * batch_count / tot_count
+        new_var = M2 / tot_count
+        return new_mean, new_var, tot_count
+
+    def forward(self, x: Tensor) -> Tensor:
+        """Atualiza as estatísticas e retorna um novo tensor normalizado."""
+        if self.training:
+            # Assumes the batch is the first dimension
+            batch_mean = x.double().mean(dim=0)
+            batch_var = x.double().var(dim=0)
+            batch_count = x.shape[0]
+            self.running_mean, self.running_var, self.count = self._update_mean_var_count_from_moments(
+                self.running_mean, self.running_var, self.count, batch_mean, batch_var, batch_count
+            )
+
+        # Out-of-place normalization (creates new tensors)
+        normalized_x = (x - self.running_mean.float()) / torch.sqrt(self.running_var.float() + self.eps)
+        normalized_x = torch.clamp(normalized_x, -self.clip, self.clip)
+        return normalized_x
+
+    # ... (logic for _update_mean_var_count_from_moments) ...
+    @staticmethod
+    @torch.jit.script
+    def _update_mean_var_count_from_moments(
+        mean: Tensor, var: Tensor, count: Tensor, batch_mean: Tensor, batch_var: Tensor, batch_count: int
+    ):
+        delta = batch_mean - mean
+        tot_count = count + batch_count
+
+        new_mean = mean + delta * batch_count / tot_count
+        m_a = var * count
+        m_b = batch_var * batch_count
+        M2 = m_a + m_b + (delta**2) * count * batch_count / tot_count
+        new_var = M2 / tot_count
+        return new_mean, new_var, tot_count
 
 # noinspection PyAttributeOutsideInit,NonAsciiCharacters
 class RunningMeanStdInPlace(nn.Module):

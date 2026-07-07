@@ -8,8 +8,6 @@ wheels/
 
 # Virtual environments
 .venv
-train*
-logs*
 videos/
 train_dir/
-play_images
+play_yourself_images/
