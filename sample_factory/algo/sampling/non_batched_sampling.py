@@ -7,7 +7,6 @@ from typing import Any, Dict, List, Optional, Tuple
 import gymnasium as gym
 import numpy as np
 
-from sample_factory.custom.reward_processer import RewardProcesser
 from sample_factory.algo.sampling.sampling_utils import VectorEnvRunner, record_episode_statistics_wrapper_stats
 from sample_factory.algo.utils.agent_policy_mapping import AgentPolicyMapping
 from sample_factory.algo.utils.env_info import EnvInfo, check_env_info
@@ -206,7 +205,6 @@ class ActorState:
         report = None
         if done:
             report = self._episodic_stats(info)
-            # print(info)
 
             self._update_training_info()
 
@@ -309,8 +307,6 @@ class ActorState:
             stats["RecordEpisodeStatistics_len"] = wrapper_len
 
         report = {EPISODIC: stats, POLICY_ID_KEY: self.curr_policy_id}
-        # print("****************************************************************************************************")
-        # print(report)
         return report
 
 
@@ -529,8 +525,7 @@ class NonBatchedVectorEnvRunner(VectorEnvRunner):
         episodic_stats = []
         env_actor_states = self.actor_states[env_i]
 
-        # TODO: ADD CURIOSITY REWARD SHAPING HERE
-        # rewards = self._process_rewards(rewards, env_i)
+        rewards = self._process_rewards(rewards, env_i)
 
         for agent_i in range(self.num_agents):
             actor_state = env_actor_states[agent_i]
@@ -616,7 +611,7 @@ class NonBatchedVectorEnvRunner(VectorEnvRunner):
                 else:
                     actor_state.ready = True
 
-    def advance_rollouts(self, policy_id: PolicyID, timing, reward_calculator: RewardProcesser) -> Tuple[List[Dict], List[Dict]]:
+    def advance_rollouts(self, policy_id: PolicyID, timing) -> Tuple[List[Dict], List[Dict]]:
         """
         Main function in VectorEnvRunner. Does one step of simulation (if all actions for all actors are available).
 
@@ -625,9 +620,6 @@ class NonBatchedVectorEnvRunner(VectorEnvRunner):
         :return: same as reset(), return a set of requests for policy workers, asking them to generate actions for
         the next env step.
         """
-        print("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
-        print("NON BATCHED SAMPLING")
-        print(id(reward_calculator))
         with timing.add_time("save_policy_outputs"):
             all_actors_ready = self._process_policy_outputs(policy_id, timing)
             if not all_actors_ready:

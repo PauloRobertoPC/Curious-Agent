@@ -1,47 +1,55 @@
 # Curious Agent
 
-## Stable Baselines 3
-
-### Training an agent
-
-```bash 
-uv run sb3/main.py --action=train --experiment=<experiment_name> --reward=<reward type> --glaucoma_level=<glaucoma_intensity>
-```
-
-###  Agent playing
-```bash 
-uv run sb3/main.py --action=play --experiment=<experiment_name> --model=<policy_number>
-
-```
-###  Evaluating Agent
-```bash 
-uv run sb3/main.py --action=evaluate --experiment=<experiment_name> --model=<policy_number> --eval_episodes=<number_of_episodes>
-```
-
-###  Getting Help
-```bash 
-uv run sb3/main.py --help
-```
-
 ## Sample Factory
 
 ### Training an agent
 
 ```bash 
-uv run sf/train.py --env=health_gathering_glaucoma
+uv run python -m sf_examples.vizdoom.train_custom_vizdoom_env \
+  --env custom_health_gathering \
+  --experiment smoke_test \
+  --train_for_env_steps 10000 \
+  --num_workers 4 --num_envs_per_worker 2 \
+  --steps_until_decay 0 --decay_speed 20 \
+  --with_curiosity false --curiosity_module_type rnd \
+  --calculate_agent_trajectory true \
+  --tot_envs_to_evaluate 4 --env_frameskip 1
 ```
 
 ### Running experiments(Grid Search)
 
-Change the file sf/experiments/exps.py to set the experiments
+If you want to execute more experiments, then add an experiment file into sf_examples/vizdoom/experiments
 
 ```bash 
-uv run sf/run.py --run=sf.experiments.exps --experiments_per_gpu=1 --num_gpus=1
+uv run python -m sample_factory.launcher.run \
+   --run=sf_examples.vizdoom.experiments.extrinsic \
+   --backend=processes --max_parallel=1  --pause_between=1 \
+   --experiments_per_gpu=1 --num_gpus=1
 ```
 
 ###  Agent playing
 ```bash 
-uv run sf/play.py --env=health_gathering_glaucoma
+uv run python -m sf_examples.vizdoom.enjoy_custom_vizdoom_env \
+  --env custom_health_gathering \
+  --experiment rnd_reward_eval/rnd_reward_/00_rnd_reward_i.r.coe_1.0_d.spe_40
+```
+
+###  Play yourself
+```bash 
+uv run python -m  sf_examples.vizdoom.play_human \
+  --env custom_health_gathering \
+  --scenario_cfg health_gathering.cfg \
+  --steps_until_decay 0 --decay_speed 10 \
+  --game_layout 0
+```
+
+### Generate data for experiment
+```bash
+uv run python -m  sf_examples.vizdoom.generate_data_from_experiment \
+  --env custom_health_gathering \
+  --experiment rnd_reward_eval/visualize_/00_visualize_see_42_d.spe_0 \
+  --tot_envs_to_evaluate 4
+```
 ```
 
 ### To see metrics in tensorboard run
@@ -49,15 +57,25 @@ uv run sf/play.py --env=health_gathering_glaucoma
 uv run -m tensorboard.main --logdir=./train_dir
 ```
 
-# Books to read
-1. Autopoieses and Biology of Intentionality
-2. Goal as Emergent Autopoietic Processes
-3. Autopoieses and Perception
-4. Autopoieses and Cognition
+ADD A GREEN POINT IN THE REWARD GRAPH WHEN MEDKIT WAS EATEN AND PURPLE ONE WHEN A POINSON WAS EATEN
+READ MORE ABOUT EXPERIMENTS CLI ARGUMENTS
+EXPLAIN WHAT KIND OF CHANGES WERE MADE IF COMPARED TO THE DEFAULT SF
+EXPLAIN DEFAULT ARGUMENTS
+    - doom_override_defaults functions changes the default arguments
+        use_rnn=False, # added by me
+        ppo_clip_value=0.2,  # value used in all experiments in the paper
+        obs_subtract_mean=0.0,
+        obs_scale=255.0,
+        exploration_loss="symmetric_kl",
+        exploration_loss_coeff=0.001,
+        normalize_returns=True,
+        normalize_input=True,
+        env_frameskip=4,
+        eval_env_frameskip=1,  # this is for smoother rendering during evaluation
+        fps=35,  # for evaluation only
+        heartbeat_reporting_interval=600,
 
-# Qualificação
-
-## Capítulos
-
-- Trabalhos Relacionados
-- Fundamentação Teórica
+uv run python -m  sf_examples.vizdoom.generate_data_from_experiment \
+  --env custom_health_gathering \
+  --experiment rnd_reward_eval/visualize_/00_visualize_see_42_d.spe_0 \
+  --tot_envs_to_evaluate 4

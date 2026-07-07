@@ -1,4 +1,7 @@
+import os
 import time
+import glob
+from pathlib import Path
 from collections import deque
 from typing import Dict, Optional, Tuple
 
@@ -27,7 +30,8 @@ from sample_factory.utils.utils import debug_log_every_n, experiment_dir, log
 from pytorch_grad_cam import GradCAM, HiResCAM, ScoreCAM, GradCAMPlusPlus, AblationCAM, XGradCAM, EigenCAM, FullGrad
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 from pytorch_grad_cam.utils.image import show_cam_on_image
-from torchvision.models import resnet50
+
+from sample_factory.algo.utils.rnd_module import RNDModule
 
 class ModelCamWrapper(torch.nn.Module):
     def __init__(self, model: torch.nn.Module, device, rnn_state_shape):
@@ -43,16 +47,14 @@ class ModelCamWrapper(torch.nn.Module):
         return outputs['action_logits']
 
 def instantiate_cam(model):
-    print(model)
     target_layers = [
-        # model.model.encoder.encoders.obs.enc.conv_head[-6],
-        # model.model.encoder.encoders.obs.enc.conv_head[-5],
-        # model.model.encoder.encoders.obs.enc.conv_head[-4],
-        # model.model.encoder.encoders.obs.enc.conv_head[-3],
-        model.model.encoder.encoders.obs.enc.conv_head[-2],
-        # model.model.encoder.encoders.obs.enc.conv_head[-1]
+        # model.model.encoder.basic_encoder.enc.conv_head[-6],
+        # model.model.encoder.basic_encoder.enc.conv_head[-5],
+        # model.model.encoder.basic_encoder.enc.conv_head[-4],
+        # model.model.encoder.basic_encoder.enc.conv_head[-3],
+        model.model.encoder.basic_encoder.enc.conv_head[-2],
+        # model.model.encoder.basic_encoder.enc.conv_head[-1],
     ]
-    print(target_layers)
 
     # You can choose different CAM methods here
     cam = GradCAM(model=model, target_layers=target_layers)
@@ -77,7 +79,7 @@ def generate_cam(cam, img, targets):
     visualization = show_cam_on_image(rgb_image, grayscale_cam, use_rgb=True, colormap=cv2.COLORMAP_JET, image_weight=0.5)
     return visualization
 
-def visualize_policy_inputs(normalized_obs: Dict[str, Tensor], cam, targets) -> None:
+def visualize_policy_inputs(normalized_obs: Dict[str, Tensor], cam, targets, visualize=True) -> None:
     """
     Display actual policy inputs after all wrappers and normalizations using OpenCV imshow.
     """
@@ -103,20 +105,29 @@ def visualize_policy_inputs(normalized_obs: Dict[str, Tensor], cam, targets) -> 
         obs, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8UC1
     )  # this will be different frame-by-frame but probably good enough to give us an idea?
 
-    scale = 5
-    obs = cv2.resize(obs, (obs.shape[1] * scale, obs.shape[0] * scale), interpolation=cv2.INTER_NEAREST)
-    obs = np.stack([obs, obs, obs], axis=2)
+    # grayscale -> RGB
+    obs = cv2.cvtColor(obs, cv2.COLOR_GRAY2RGB)
 
-    img_cam = cv2.resize(img_cam, (img_cam.shape[1] * scale, img_cam.shape[0] * scale), interpolation=cv2.INTER_NEAREST)
+    if visualize:
+        scale = 5
+
+        obs = cv2.resize(
+            obs,
+            (obs.shape[1] * scale, obs.shape[0] * scale),
+            interpolation=cv2.INTER_NEAREST,
+        )
+
+        img_cam = cv2.resize(
+            img_cam,
+            (img_cam.shape[1] * scale, img_cam.shape[0] * scale),
+            interpolation=cv2.INTER_NEAREST,
+        )
 
     side_by_side_rgb = np.concatenate((obs, img_cam), axis=1)
-    side_by_side_bgr = side_by_side_rgb[:, :, ::-1]  # convert RGB to BGR for OpenCV
 
-    # cv2.imshow("policy inputs", obs)
-    # cv2.imshow("policy inputs cam", img_cam)
-    cv2.imshow("policy inputs", side_by_side_bgr)
-
-    cv2.waitKey(delay=1)
+    if visualize:
+        cv2.imshow("policy inputs", side_by_side_rgb[:, :, ::-1])
+        cv2.waitKey(1)
 
     return side_by_side_rgb
 
@@ -200,6 +211,7 @@ def enjoy(cfg: Config) -> Tuple[StatusCode, float]:
     device = torch.device("cpu" if cfg.device == "cpu" else "cuda")
     actor_critic.model_to_device(device)
 
+    cfg.train_dir = "./train_dir"
     load_state_dict(cfg, actor_critic, device)
 
     episode_rewards = [deque([], maxlen=100) for _ in range(env.num_agents)]
@@ -228,7 +240,6 @@ def enjoy(cfg: Config) -> Tuple[StatusCode, float]:
     load_state_dict(cfg, actor_critic_cam, device)
 
     cam_model = ModelCamWrapper(actor_critic_cam, device, [env.num_agents, get_rnn_size(cfg)])
-    print(cam_model)
 
 
     cam = instantiate_cam(cam_model)
@@ -372,3 +383,175 @@ def enjoy(cfg: Config) -> Tuple[StatusCode, float]:
     return ExperimentStatus.SUCCESS, sum([sum(episode_rewards[i]) for i in range(env.num_agents)]) / sum(
         [len(episode_rewards[i]) for i in range(env.num_agents)]
     )
+
+def play_episodes(cfg: Config) -> None:
+    #* getting checkpoints names
+    train_dir = cfg.train_dir
+    p = Path(train_dir)
+    train_dir = Path(*p.parts[:p.parts.index("train_dir") + 1])
+    experiment_dir = cfg.experiment
+    milestone_dir = os.path.join(train_dir, experiment_dir, "checkpoint_p0/milestones")
+    print(milestone_dir)
+    checkpoints = sorted(glob.glob(os.path.join(milestone_dir, "*.pth")))
+
+    #* adjusting configuration
+    cfg = load_from_checkpoint(cfg)
+
+    eval_env_frameskip = (
+        cfg.env_frameskip
+        if cfg.eval_env_frameskip is None
+        else cfg.eval_env_frameskip
+    )
+
+    render_action_repeat = cfg.env_frameskip // eval_env_frameskip
+    cfg.env_frameskip = cfg.eval_env_frameskip = eval_env_frameskip
+    cfg.num_envs = 1
+
+    device = torch.device("cpu" if cfg.device == "cpu" else "cuda")
+
+    #* fake enviroment just to get information
+    env_aux = make_env(cfg, render_mode=None)
+    env_info = extract_env_info(env_aux, cfg)
+
+    # GradCam object
+    actor_critic_cam = create_actor_critic(cfg, env_aux.observation_space, env_aux.action_space)
+    actor_critic_cam.model_to_device(device)
+    env_aux.close()
+
+    #* loading actor_critic
+    actor_critic = create_actor_critic(
+        cfg,
+        env_aux.observation_space,
+        env_aux.action_space,
+    )
+    actor_critic.model_to_device(device)
+    actor_critic.eval()
+
+    #* loading rnd
+    curiosity_module = None
+    if cfg.with_curiosity:
+        curiosity_module = RNDModule(cfg, env_info.obs_space, device)
+
+    #* hardcoded for custom_health_gathering
+    tot_steps_each_train = int(checkpoints[0].split("/")[-1].split("_")[2].split(".")[0])
+
+    # creating envs
+    envs = []
+    to_game_layout_string = {0: "RANDOM", 1: "SQUARE", 2: "CIRCLE", 3: "SIN", 4:"GRID"} #* hardcoded for custom_health_gathering
+    to_game_layout_data_diretory = {}
+    for game_layout in range(0, cfg.tot_envs_to_evaluate+1):
+        to_game_layout_data_diretory[game_layout] = os.path.join(train_dir, experiment_dir, f"agent_trajectories/{to_game_layout_string[game_layout]}")
+        os.makedirs(to_game_layout_data_diretory[game_layout], exist_ok=True)
+        #* changing env_settings
+        setattr(cfg, "game_layout", game_layout)
+        setattr(cfg, "calculate_agent_trajectory", True)
+        setattr(cfg, "calculate_agent_trajectory_directory", to_game_layout_data_diretory[game_layout])
+        setattr(cfg, "calculate_agent_trajectory_step", tot_steps_each_train)
+        env = make_env(cfg, render_mode=None)
+        env_info = extract_env_info(env, cfg)
+        print(env)
+        envs.append(env)
+
+    for checkpoint_path in checkpoints:
+        checkpoint_steps = int(checkpoint_path.split("/")[-1].split("_")[2].split(".")[0])
+        checkpoint = Learner.load_checkpoint_by_path(checkpoint_path, device)
+        if curiosity_module is not None:
+            curiosity_module.load_checkpoint_dict(checkpoint["curiosity"])
+            curiosity_module.eval()
+        cfg.train_dir = "./train_dir"
+        # loading model
+        actor_critic.load_state_dict(checkpoint["model"])
+        #* loading cam
+        actor_critic_cam.load_state_dict(checkpoint["model"])
+        cam_model = ModelCamWrapper(actor_critic_cam, device, [1, get_rnn_size(cfg)])
+        cam = instantiate_cam(cam_model)
+
+        targets = [ClassifierOutputTarget(0)]
+
+        for idx, env in enumerate(envs):
+
+            if hasattr(env.unwrapped, "reset_on_init"):
+                env.unwrapped.reset_on_init = False
+
+            episode_frames = []
+            episode_rewards = []
+            episode_infos = []
+
+            obs, _ = env.reset()
+
+            action_mask = (
+                obs.pop("action_mask").to(device)
+                if "action_mask" in obs
+                else None
+            )
+
+            rnn_states = torch.zeros(
+                [env.num_agents, get_rnn_size(cfg)],
+                dtype=torch.float32,
+                device=device,
+            )
+
+            with torch.no_grad():
+                episode_running = True
+                while episode_running:
+                    normalized_obs = prepare_and_normalize_obs(actor_critic, obs)
+
+                    policy_outputs = actor_critic(
+                        normalized_obs,
+                        rnn_states,
+                        action_mask=action_mask,
+                    )
+
+                    actions = policy_outputs["actions"]
+
+                    if cfg.eval_deterministic:
+                        actions = argmax_actions(actor_critic.action_distribution())
+
+                    if actions.ndim == 1:
+                        actions = unsqueeze_tensor(actions, dim=-1)
+
+                    actions = preprocess_actions(env_info, actions)
+
+                    rnn_states = policy_outputs["new_rnn_states"]
+
+
+                    targets[0] = ClassifierOutputTarget(actions[0])
+                    frame_processed = visualize_policy_inputs(normalized_obs, cam, targets, False)
+                    episode_frames.append(torch.from_numpy(frame_processed).cpu())
+
+                    for _ in range(render_action_repeat):
+                        obs, rew, terminated, truncated, infos = env.step(actions)
+                        episode_infos.append(infos)
+
+                        action_mask = (
+                            obs.pop("action_mask").to(device)
+                            if "action_mask" in obs
+                            else None
+                        )
+
+                        dones = make_dones(terminated, truncated)
+
+                        rew *= cfg.rnd_ext_coef
+                        # calculating rewards
+                        if curiosity_module is not None:
+                            obs["obs"] = obs["obs"].to(device)
+                            dones = dones.to(device)
+                            intrinsic_rewards = curiosity_module.calculate_rewards(obs, dones)
+                            rew += intrinsic_rewards.cpu()*cfg.intrinsic_reward_coeff
+
+                        episode_rewards.append(rew)
+
+                        if dones.all():
+                            save_data = {
+                                "frames": torch.stack(episode_frames),
+                                "rewards": torch.stack(episode_rewards),
+                                "infos": episode_infos,
+                            }
+                            data_path = os.path.join(to_game_layout_data_diretory[idx], f"{checkpoint_steps:010d}.pt")
+                            torch.save(
+                                save_data,
+                                data_path
+                            )
+                            episode_running = False
+    for env in envs:
+        env.close()

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import glob
+import math
 import os
 import time
 from abc import ABC, abstractmethod
@@ -12,8 +13,6 @@ import torch
 from torch import Tensor
 from torch.nn import Module
 
-from sample_factory.custom.reward_processer import *
-from sample_factory.custom import create_instance
 from sample_factory.algo.learning.rnn_utils import build_core_out_from_seq, build_rnn_inputs
 from sample_factory.algo.utils.action_distributions import get_action_distribution, is_continuous_action_space
 from sample_factory.algo.utils.env_info import EnvInfo
@@ -32,7 +31,8 @@ from sample_factory.utils.dicts import iterate_recursively
 from sample_factory.utils.timing import Timing
 from sample_factory.utils.typing import ActionDistribution, Config, InitModelData, PolicyID
 from sample_factory.utils.utils import ensure_dir_exists, experiment_dir, log
-
+#* importing rnd
+from sample_factory.algo.utils.rnd_module import RNDModule
 
 class LearningRateScheduler:
     def update(self, current_lr, recent_kls):
@@ -146,6 +146,15 @@ class Learner(Configurable):
 
         self.optimizer = None
 
+        #* preparing rnd variables
+        self.curiosity_module = None
+        self.latest_rnd_stats = {}
+        self.intrinsic_reward_coeff = None
+
+        #* preparing save_every_env_steps variable
+        self.need_calculate_save_every_env_steps = True
+        self.save_every_env_steps = self.cfg.save_every_env_steps
+
         self.curr_lr: Optional[float] = None
         self.lr_scheduler: Optional[LearningRateScheduler] = None
 
@@ -216,6 +225,14 @@ class Learner(Configurable):
         log.debug(self.actor_critic)
         self.actor_critic.model_to_device(self.device)
 
+        #* initialize rnd module
+        self.curiosity_module = None
+        if getattr(self.cfg, 'with_curiosity', False):
+            log.info(f"Enabling the RND curiosity module on device {self.device}...")
+            self.curiosity_module = RNDModule(self.cfg, self.env_info.obs_space, self.device)
+
+        self.intrinsic_reward_coeff = getattr(self.cfg, 'intrinsic_reward_coeff', 1.0)
+
         def share_mem(t):
             if t is not None and not t.is_cuda:
                 return t.share_memory_()
@@ -224,7 +241,6 @@ class Learner(Configurable):
         # noinspection PyProtectedMember
         self.actor_critic._apply(share_mem)
         self.actor_critic.train()
-
 
         params = list(self.actor_critic.parameters())
 
@@ -244,12 +260,6 @@ class Learner(Configurable):
             optimizer_kwargs["eps"] = self.cfg.adam_eps
 
         self.optimizer = optimizer_cls(params, **optimizer_kwargs)
-
-        # Setting Reward Calculator
-        self.reward_calculator = create_instance(self.cfg.reward_type, self.cfg, self.env_info)
-        # self.reward_calculator.model_to_device(self.device)
-        self.reward_calculator._apply(share_mem)
-        # self.reward_calculator.train()
 
         self.load_from_checkpoint(self.policy_id)
         self.param_server.init(self.actor_critic, self.train_step, self.device)
@@ -295,6 +305,23 @@ class Learner(Configurable):
                 except Exception:
                     log.exception(f"Could not load from checkpoint, attempt {attempt}")
 
+    #* loading checkpoint by path
+    @staticmethod
+    def load_checkpoint_by_path(latest_checkpoint, device):
+        # this flag was introduced with torch 2.0, and since torch 2.6 its default value is True, which breaks loads
+        extra_load_kwargs = {"weights_only": False} if torch.__version__.split(".")[0] >= "2" else {}
+
+        # extra safety mechanism to recover from spurious filesystem errors
+        num_attempts = 3
+        for attempt in range(num_attempts):
+            # noinspection PyBroadException
+            try:
+                log.warning("Loading state from checkpoint %s...", latest_checkpoint)
+                checkpoint_dict = torch.load(latest_checkpoint, map_location=device, **extra_load_kwargs)
+                return checkpoint_dict
+            except Exception:
+                log.exception(f"Could not load from checkpoint, attempt {attempt}")
+
     def _load_state(self, checkpoint_dict, load_progress=True):
         if load_progress:
             self.train_step = checkpoint_dict["train_step"]
@@ -303,6 +330,11 @@ class Learner(Configurable):
         self.actor_critic.load_state_dict(checkpoint_dict["model"])
         self.optimizer.load_state_dict(checkpoint_dict["optimizer"])
         self.curr_lr = checkpoint_dict.get("curr_lr", self.cfg.learning_rate)
+
+        #* restoring rnd state
+        if self.curiosity_module is not None and "curiosity" in checkpoint_dict:
+            self.curiosity_module.load_checkpoint_dict(checkpoint_dict["curiosity"])
+            log.info("Loaded curiosity (RND) module state from checkpoint")
 
         log.info(f"Loaded experiment state at {self.train_step=}, {self.env_steps=}")
 
@@ -338,6 +370,9 @@ class Learner(Configurable):
             "optimizer": self.optimizer.state_dict(),
             "curr_lr": self.curr_lr,
         }
+        #* get rnd checkpoint dict
+        if self.curiosity_module is not None:
+            checkpoint["curiosity"] = self.curiosity_module.get_checkpoint_dict()
         return checkpoint
 
     def _save_impl(self, name_prefix, name_suffix, keep_checkpoints, verbose=True) -> bool:
@@ -673,12 +708,16 @@ class Learner(Configurable):
             adv=adv,
             adv_std=adv_std,
             adv_mean=adv_mean,
+            #* rnd summary parameters
+            rnd_loss=self.latest_rnd_stats.get('rnd_loss', 0.0),
+            rnd_reward=self.latest_rnd_stats.get('rnd_reward', 0.0),
         )
 
         return action_distribution, policy_loss, exploration_loss, kl_old, kl_loss, value_loss, loss_summaries
 
     def _train(
-        self, gpu_buffer: TensorDict, batch_size: int, experience_size: int, num_invalids: int
+        self, gpu_buffer: TensorDict, batch_size: int, experience_size: int, num_invalids: int,
+        rnd_loss: Optional[Tensor] = None
     ) -> Optional[AttrDict]:
         timing = self.timing
         with torch.no_grad():
@@ -820,6 +859,12 @@ class Learner(Configurable):
                     if should_record_summaries:
                         # hacky way to collect all of the intermediate variables for summaries
                         summary_vars = {**locals(), **loss_summaries}
+
+
+                        #* adding rnd loss to summary
+                        if rnd_loss is not None:
+                            summary_vars['rnd_loss'] = rnd_loss
+
                         stats_and_summaries = self._record_summaries(AttrDict(summary_vars))
                         del summary_vars
                         force_summaries = False
@@ -879,7 +924,12 @@ class Learner(Configurable):
         stats.act_min = var.mb.actions.min()
         stats.act_max = var.mb.actions.max()
 
-        if "adv_mean" in stats:
+        #* rnd statistics
+        if hasattr(var, 'rnd_loss'):
+            stats.rnd_loss = var.rnd_loss
+            stats.rnd_reward = var.rnd_reward
+
+        if "advantages" in var.mb:
             stats.adv_min = var.mb.advantages.min()
             stats.adv_max = var.mb.advantages.max()
             stats.adv_std = var.adv_std
@@ -1047,6 +1097,34 @@ class Learner(Configurable):
             self._maybe_update_cfg()
             self._maybe_load_policy()
 
+        #* rnd variables for statistics
+        raw_intrinsic_rewards: Optional[Tensor] = None
+        rnd_loss: Optional[Tensor] = None
+
+        #* rnd train
+        if self.curiosity_module:
+            with self.timing.add_time("curiosity_calc"):
+                dones = batch["dones"].to(self.device)
+
+                rnd_obs = batch["obs"]
+
+                #* calculates intrinsic reward (filters terminal obs)
+                raw_intrinsic_rewards = self.curiosity_module.calculate_rewards(rnd_obs, dones)
+
+                #* train predictor
+                rnd_loss = self.curiosity_module.update(rnd_obs, dones)
+
+                #* temporal alignment: observations have T+1 time steps, while rewards have T.
+                target_len = batch["rewards"].shape[1]
+                if raw_intrinsic_rewards.shape[1] > target_len:
+                    raw_intrinsic_rewards = raw_intrinsic_rewards[:, :target_len]
+
+                #* final reward composition
+                ext_coef = getattr(self.cfg, 'rnd_ext_coef', 0.0)
+                int_coef = getattr(self.cfg, 'intrinsic_reward_coeff', 1.0)
+                batch["rewards"] = batch["rewards"] * ext_coef + raw_intrinsic_rewards * int_coef
+
+
         with self.timing.add_time("prepare_batch"):
             buff, experience_size, num_invalids = self._prepare_batch(batch)
 
@@ -1058,7 +1136,8 @@ class Learner(Configurable):
             return None
         else:
             with self.timing.add_time("train"):
-                train_stats = self._train(buff, self.cfg.batch_size, experience_size, num_invalids)
+                #* we pass rnd_loss here so it is logged in Tensorboard along with PPO stats
+                train_stats = self._train(buff, self.cfg.batch_size, experience_size, num_invalids, rnd_loss=rnd_loss)
 
             # multiply the number of samples by frameskip so that FPS metrics reflect the number
             # of environment steps actually simulated
@@ -1066,6 +1145,16 @@ class Learner(Configurable):
                 self.env_steps += experience_size * self.env_info.frameskip
             else:
                 self.env_steps += experience_size
+
+            if self.env_steps > 0 and self.save_every_env_steps > 0 and self.need_calculate_save_every_env_steps:
+                print("****************************************************************************************************")
+                self.save_every_env_steps = math.ceil(self.save_every_env_steps/self.env_steps)*self.env_steps
+                print(f"SAVING POLICY AT EACH {self.save_every_env_steps} STEPS")
+                self.need_calculate_save_every_env_steps = False
+
+            #* saving policy at each save_every_env_steps
+            if self.env_steps%self.save_every_env_steps == 0:
+                self.save_milestone()
 
             stats = {LEARNER_ENV_STEPS: self.env_steps, POLICY_ID_KEY: self.policy_id}
             if train_stats is not None:
