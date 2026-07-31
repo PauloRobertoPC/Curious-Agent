@@ -32,6 +32,8 @@ A perda de vida ocorre continuamente porque o chão do ambiente é ácido. O age
 
 Os principais elementos do ambiente padrão, portanto, incluem a vida inicial e máxima do agente, a duração máxima dos episódios, a taxa de perda de vida no chão ácido, a quantidade de \textit{medikits} disponíveis, a quantidade de vida restaurada por cada item e a regra de surgimento dos novos \textit{medikits}. Esses elementos definem a dinâmica básica de sobrevivência e coleta de recursos da tarefa \textit{Health-Gathering}.
 
+Esses parâmetros não foram individualmente ajustados para favorecer a proposta deste trabalho. O limite de 2100 \textit{ticks}, a perda periódica de vida, a restauração de 25 pontos por \textit{medikit}, a quantidade de recursos disponíveis e o surgimento de novos itens a cada 30 \textit{ticks} correspondem à dinâmica padrão adotada na tarefa \textit{Health-Gathering}. A manutenção dessa configuração preserva uma referência conhecida do ambiente e evita introduzir alterações adicionais que poderiam interferir na comparação. 
+
 \section{Formulação em Aprendizado por Reforço}
 
 Como discutido na Seção~\ref{subsec:aprendizado-por-reforco}, o Aprendizado por Reforço modela a interação entre agente e ambiente como um processo sequencial de observação, ação, transição de estado e recompensa. Nesta pesquisa, a tarefa \textit{Health-Gathering} será formulada a partir dessa estrutura: a cada instante de tempo, o agente recebe uma observação visual do ambiente, escolhe uma ação e recebe um sinal de recompensa. Em seguida, o ambiente é atualizado e uma nova observação é produzida. Esse ciclo se repete até o fim do episódio, que pode ocorrer quando a vida do agente chega a zero ou quando o limite máximo de \textit{ticks} é atingido.
@@ -40,7 +42,7 @@ Como discutido na Seção~\ref{subsec:aprendizado-por-reforco}, o Aprendizado po
 
 As observações serão compostas por imagens do ponto de vista do agente. Assim, o agente não receberá uma representação simbólica do ambiente, como coordenadas absolutas dos \textit{medikits} ou mapas completos da sala, mas sim informações visuais para um personagem situado no ambiente.
 
-As imagens passarão por uma sequência fixa de pré-processamento, ilustrada na Figura~\ref{fig:preprocessamento-observacao}. A observação original fornecida pelo ambiente possui resolução de $320 \times 240$ pixels em RGB. Em seguida, a imagem será convertida para escala de cinza, reduzindo os três canais de cor a um único canal de intensidade. Depois, será redimensionada para $84 \times 84$ pixels. Por fim, os valores dos pixels serão divididos por $255$, passando inicialmente para o intervalo $[0,1]$. Durante o treinamento, o Sample Factory também aplica uma normalização estatística baseada na média e no desvio padrão acumulados das observações.
+As imagens passarão por uma sequência fixa de pré-processamento, ilustrada na Figura~\ref{fig:preprocessamento-observacao}. A observação original fornecida pelo ambiente possui resolução de $320 \times 240$ pixels em RGB. Em seguida, a imagem será convertida para escala de cinza, reduzindo os três canais de cor a um único canal de intensidade. Depois, será redimensionada para $84 \times 84$ pixels. Por fim, os valores dos pixels serão divididos por $255$, passando inicialmente para o intervalo $[0,1]$. Durante o treinamento, o Sample Factory (biblioteca de Aprendizado por Reforço utilizada neste trabalho, apresentada mais adiante) também aplica uma normalização estatística baseada na média e no desvio padrão acumulados das observações.
 
 O treinamento diretamente com as imagens originais exigiria processar uma quantidade muito maior de valores a cada interação, aumentando o consumo de memória, o tempo de inferência e o custo das atualizações da rede. Além disso, as informações de cor e a alta resolução não são indispensáveis para distinguir os principais elementos desta tarefa, como paredes, regiões navegáveis e \textit{medikits}. O pré-processamento reduz detalhes visuais que não são centrais para o experimento, padroniza a escala da entrada e permite coletar e processar mais experiências com os recursos computacionais disponíveis. A resolução de $84 \times 84$ preserva a estrutura espacial necessária à navegação e à identificação dos recursos, sem impor o custo de treinar com a imagem original. Essa escolha, portanto, busca eficiência e estabilidade no treinamento, e não a obtenção da representação visual mais detalhada possível.
 
@@ -98,6 +100,8 @@ O Sample Factory oferece numerosos parâmetros de configuração, mas nem todos 
 \hline
 \end{tabular}
 \end{table}
+
+Os hiperparâmetros apresentados na Tabela~\ref{tab:hiperparametros-ppo} já se encontravam pré-configurados na implementação utilizada com o Sample Factory \cite{sample_factory}. Essa configuração mostrou-se funcional na condição de controle com recompensa extrínseca, na qual o agente foi capaz de aprender a tarefa de forma estável. Por essa razão, os valores foram mantidos nas demais condições experimentais, evitando ajustes específicos que poderiam favorecer uma forma de recompensa e preservando uma base comum para as comparações.
 
 \subsection{Arquitetura da Rede Neural}
 
@@ -302,7 +306,7 @@ As redes alvo e preditora possuem a mesma arquitetura, apresentada na Figura~\re
 
 A escolha dessa arquitetura segue o princípio de simplicidade adotado na rede da política. As três camadas convolucionais são suficientes para extrair características espaciais das observações, enquanto as camadas lineares transformam essas características em uma representação compacta sobre a qual o erro de predição pode ser calculado. Como o objetivo do RND neste trabalho é fornecer um sinal de novidade perceptiva, e não investigar novas arquiteturas de representação, uma estrutura mais sofisticada acrescentaria complexidade e custo computacional sem contribuir diretamente para a hipótese avaliada. O uso da mesma arquitetura nas redes alvo e preditora também torna a comparação entre suas saídas direta e controlada.
 
-O treinamento da rede preditora do RND utilizará \texttt{batch\_size} igual a $1024$ e \texttt{learning\_rate} igual a $0{,}0001$. O primeiro parâmetro define a quantidade de amostras utilizada em cada atualização, enquanto o segundo controla a magnitude das alterações aplicadas aos parâmetros da rede preditora.
+O treinamento da rede preditora do RND utilizará os mesmos valores de \texttt{batch\_size} e \texttt{learning\_rate} apresentados na Tabela~\ref{tab:hiperparametros-ppo}, respectivamente $1024$ e $0{,}0001$. Esses valores foram mantidos pela mesma razão apresentada para o PPO, pois já se encontravam pré-configurados na implementação utilizada e forneceram uma base funcional para o experimento de controle com recompensa extrínseca. Sua manutenção também evita ajustes específicos para o RND e preserva maior uniformidade entre os componentes do treinamento.
 
 \subsection{Recompensa Intrínseca e sua Relação com o Glaucoma}
 
@@ -388,13 +392,13 @@ Além dessas comparações, será analisado o gráfico de recompensa intrínseca
 
 \section{Análise Visual da Política Aprendida}
 
-Para complementar a avaliação, pretende-se utilizar técnicas de interpretabilidade visual, como Grad-CAM, discutido na Seção~\ref{subsubsec:gradcam}. O objetivo é identificar quais regiões da observação influenciam as decisões do agente. A Figura~\ref{fig:gradcam-health-gathering} apresenta um exemplo ilustrativo desse tipo de visualização na tarefa \textit{Health-Gathering}. Essa análise é especialmente importante porque o agente atua a partir de imagens e porque a proposta do trabalho depende da relação entre percepção, curiosidade e viabilidade.
+Para complementar a avaliação, serão utilizadas técnicas de interpretabilidade visual, como Grad-CAM, discutido na Seção~\ref{subsubsec:gradcam}. O objetivo é identificar quais regiões da observação influenciam as decisões do agente. A Figura~\ref{fig:gradcam-health-gathering} apresenta um exemplo ilustrativo desse tipo de visualização na tarefa \textit{Health-Gathering}. Essa análise é especialmente importante porque o agente atua a partir de imagens e porque a proposta do trabalho depende da relação entre percepção, curiosidade e viabilidade.
 
 A escolha do Grad-CAM segue o mesmo princípio de simplicidade adotado na arquitetura da política. O objetivo não é comparar métodos de interpretabilidade nem obter a explicação visual mais sofisticada possível, mas produzir uma indicação espacial suficientemente clara das regiões da observação que influenciam as decisões do agente. Como a política utiliza camadas convolucionais, o Grad-CAM pode ser aplicado diretamente aos mapas de características da rede e gerar mapas de calor sobrepostos à imagem original, facilitando a interpretação qualitativa do comportamento. Métodos mais sofisticados exigiriam, desnecessariamente, maior custo de processamento. A adoção de uma única técnica simples e compatível com a CNN mantém a análise visual alinhada ao objetivo central do experimento.
 
 \begin{figure}[h!]
     \centering
-    \includegraphics[width=0.6\linewidth]{figuras/gcam-hr.png}
+    \includegraphics[width=0.40\linewidth]{figuras/gcam-hr.png}
     \caption{Exemplo ilustrativo de mapa de calor inspirado em Grad-CAM aplicado à tarefa \textit{Health-Gathering}. As regiões mais quentes indicam as áreas da observação com maior relevância para a decisão do agente, isto é, aquelas que mais importam na análise visual da política aprendida.\\
     \textbf{Fonte:} Elaborada pelo autor.}
     \label{fig:gradcam-health-gathering}
