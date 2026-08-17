@@ -55,21 +55,21 @@ def add_custom_args(parser):
 
     # glaucoma parameters
     parser.add_argument("--steps_until_decay", type=int, default=0,
-                        help="Janela de tolerância (passos) antes da cegueira iniciar (Alostase)")
+                        help="Tolerance window (steps) before blindness begins")
     parser.add_argument("--decay_speed", type=int, default=0,
-                        help="Quantos pixels são apagados por passo após o fim da tolerância")
+                        help="Number of pixels erased per step after the tolerance window ends")
 
     # rnd parameters
     parser.add_argument("--with_curiosity", type=lambda x: str(x).lower() == 'true', default=False,
-                        help="Ativa o módulo de curiosidade customizado")
+                        help="Enable the custom curiosity module")
     parser.add_argument("--curiosity_module_type", type=str, default='rnd',
-                        help="Tipo do módulo (ex: rnd)")
+                        help="Curiosity module type (e.g., rnd)")
     parser.add_argument("--intrinsic_reward_coeff", type=float, default=1.0,
-                        help="Peso da recompensa intrínseca na otimização")
+                        help="Weight of the intrinsic reward in the optimization")
     parser.add_argument("--rnd_lr", type=float, default=1e-4,
-                        help="Learning rate específico para a rede do RND")
+                        help="Specific learning rate for the RND network")
     parser.add_argument("--rnd_ext_coef", type=float, default=0.0,
-                        help="Coeficiente para a recompensa extrínseca (0.0 para ignorar recompensa do jogo)")
+                        help="Coefficient for the extrinsic reward (0.0 to ignore the game's reward)")
 
     # experiment parameters
     parser.add_argument(

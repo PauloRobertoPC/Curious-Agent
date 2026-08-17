@@ -9,7 +9,7 @@ from .utils import add_custom_args, register_custom_doom_env
 
 def main():
     """
-    Script dedicado para visualizar (enjoy) o ambiente da Tese.
+    Script dedicated to viewing (and enjoying) the thesis environment.    
     """
     register_vizdoom_components()
 
