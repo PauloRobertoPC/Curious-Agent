@@ -109,3 +109,5 @@ def title(self):
     )
 
     self.next_slide()
+
+    self.clear()
