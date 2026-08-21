@@ -12,9 +12,9 @@ def observacao(self):
     
     # Carregando e ajustando as alturas
     # O img_small tem uma altura menor para representar visualmente a perda de resolução
-    img_rgb = ImageMobject("rgb.png").scale_to_fit_height(2.5)
-    img_gray = ImageMobject("gray.png").scale_to_fit_height(2.5)
-    img_small = ImageMobject("smaller.png").scale_to_fit_height(1.8)
+    img_rgb = ImageMobject("assets/rgb.png").scale_to_fit_height(2.5)
+    img_gray = ImageMobject("assets/gray.png").scale_to_fit_height(2.5)
+    img_small = ImageMobject("assets/smaller.png").scale_to_fit_height(1.8)
 
     # Posicionando as imagens em linha
     images = Group(img_rgb, img_gray, img_small).arrange(RIGHT, buff=1.5).shift(DOWN * 0.2)

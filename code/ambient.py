@@ -12,7 +12,7 @@ def ambient(self):
     # ==========================================
     
     # Carregando a imagem real do cenário
-    room = ImageMobject("top-down-health-gathering.png")
+    room = ImageMobject("assets/top-down-health-gathering.png")
     room.height = 5.0 
     room.to_edge(LEFT, buff=0.5).shift(DOWN * 0.5) 
     

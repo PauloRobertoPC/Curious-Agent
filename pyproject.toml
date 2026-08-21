@@ -7,5 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "manim>=0.20.1",
     "manim-slides>=5.6.0",
+    "opencv-python>=5.0.0.93",
     "pyside6>=6.11.1",
+    "torch>=2.13.0",
 ]

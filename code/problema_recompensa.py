@@ -11,7 +11,7 @@ def problema_recompensa(self):
     # ==========================================
     
     # Imagem atualizada e com tamanho levemente reduzido para dar espaço ao texto
-    img = ImageMobject("fantoche.png")
+    img = ImageMobject("assets/fantoche.png")
     img.height = 4.5
     img.to_edge(LEFT, buff=0.5).shift(DOWN * 0.2)
 
